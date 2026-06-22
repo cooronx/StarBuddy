@@ -61,6 +61,33 @@ export class RepositoriesService {
 
     return repositories.map(serializeRepository);
   }
+
+  async listGithubMine(userId: string, githubLogin: string) {
+    const token = await this.authService.getActivePlainToken(userId);
+    const [githubRepositories, submittedRepositories] = await Promise.all([
+      this.github.listPublicRepositories(githubLogin, token),
+      this.prisma.repository.findMany({
+        where: { ownerUserId: userId },
+        include: { starTask: true },
+      }),
+    ]);
+
+    const submittedByGithubId = new Map(
+      submittedRepositories.map((repository) => [
+        repository.githubRepoId.toString(),
+        serializeRepository(repository),
+      ]),
+    );
+
+    return githubRepositories.map((repository) => ({
+      githubRepoId: repository.id.toString(),
+      githubOwner: repository.owner,
+      githubRepo: repository.repo,
+      description: repository.description ?? null,
+      starsCountSnapshot: repository.starsCount,
+      submittedRepository: submittedByGithubId.get(repository.id.toString()) ?? null,
+    }));
+  }
 }
 
 function serializeRepository(repository: {

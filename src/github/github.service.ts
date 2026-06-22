@@ -67,6 +67,40 @@ export class GithubService {
     };
   }
 
+  async listPublicRepositories(
+    githubLogin: string,
+    token?: string,
+  ): Promise<GithubRepository[]> {
+    const repositories: GithubRepository[] = [];
+    let page = 1;
+
+    while (page <= 10) {
+      const response = await this.request<GithubRepositoryResponse[]>(
+        `/users/${encodeURIComponent(githubLogin)}/repos?type=owner&sort=updated&per_page=100&page=${page}`,
+        token,
+      );
+
+      repositories.push(
+        ...response.map((repository) => ({
+          id: BigInt(repository.id),
+          owner: repository.owner.login,
+          repo: repository.name,
+          description: repository.description ?? undefined,
+          starsCount: repository.stargazers_count,
+          isPrivate: repository.private,
+        })),
+      );
+
+      if (response.length < 100) {
+        break;
+      }
+
+      page += 1;
+    }
+
+    return repositories.filter((repository) => !repository.isPrivate);
+  }
+
   async isStarred(owner: string, repo: string, token: string): Promise<boolean> {
     const response = await this.rawRequest(
       `/user/starred/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,

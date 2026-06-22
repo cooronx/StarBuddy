@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Github,
@@ -16,6 +16,7 @@ import {
   CreditLedgerEntry,
   CurrentTask,
   EmptyTask,
+  GithubRepository,
   Repository,
   TaskResult,
   User,
@@ -32,7 +33,7 @@ export function App() {
     null,
   );
   const [ledger, setLedger] = useState<CreditLedgerEntry[]>([]);
-  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [repositories, setRepositories] = useState<GithubRepository[]>([]);
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,7 @@ export function App() {
         api.getMe(),
         api.getCurrentTask(),
         api.getLedger(),
-        api.listRepositories(),
+        api.listGithubRepositories(),
       ]);
 
       setUser(me);
@@ -64,6 +65,10 @@ export function App() {
       setLoading(false);
     }
   }, [accessToken, api]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   async function handleLogin(token: string) {
     setLoading(true);
@@ -88,7 +93,7 @@ export function App() {
     setMessage('');
     try {
       const repository = await api.createRepository(url);
-      setRepositories((items) => [repository, ...items]);
+      setRepositories((items) => mergeSubmittedRepository(items, repository));
       setMessage(`${repository.githubOwner}/${repository.githubRepo} added.`);
     } catch (repositoryError) {
       setError(errorMessage(repositoryError));
@@ -177,8 +182,12 @@ export function App() {
       ) : (
         <section className="workspace">
           <aside className="side-panel">
+            <RepositoryList
+              loading={loading}
+              repositories={repositories}
+              onSubmit={handleRepositorySubmit}
+            />
             <RepositoryForm loading={loading} onSubmit={handleRepositorySubmit} />
-            <RepositoryList repositories={repositories} />
           </aside>
 
           <section className="main-panel">
@@ -274,23 +283,62 @@ function RepositoryForm({
   );
 }
 
-function RepositoryList({ repositories }: { repositories: Repository[] }) {
+function RepositoryList({
+  loading,
+  repositories,
+  onSubmit,
+}: {
+  loading: boolean;
+  repositories: GithubRepository[];
+  onSubmit: (url: string) => void;
+}) {
+  const submittedCount = repositories.filter(
+    (repository) => repository.submittedRepository,
+  ).length;
+
   return (
     <section className="tool-panel">
       <div className="panel-title">
         <Github size={18} />
         <h2>Your projects</h2>
       </div>
+      {repositories.length > 0 ? (
+        <p className="muted">
+          {submittedCount}/{repositories.length} submitted to StarBuddy.
+        </p>
+      ) : null}
       <div className="compact-list">
         {repositories.length === 0 ? (
-          <p className="muted">No submitted repositories yet.</p>
+          <p className="muted">No public GitHub repositories found.</p>
         ) : (
           repositories.map((repository) => (
-            <div className="compact-row" key={repository.id}>
-              <strong>
-                {repository.githubOwner}/{repository.githubRepo}
-              </strong>
-              <span>{repository.starTask?.status ?? repository.status}</span>
+            <div className="repository-row" key={repository.githubRepoId}>
+              <div>
+                <strong>
+                  {repository.githubOwner}/{repository.githubRepo}
+                </strong>
+                <span>
+                  {repository.submittedRepository?.starTask?.status ??
+                    repository.submittedRepository?.status ??
+                    `${repository.starsCountSnapshot} stars`}
+                </span>
+              </div>
+              {repository.submittedRepository ? (
+                <span className="status-pill">Submitted</span>
+              ) : (
+                <button
+                  className="inline-button"
+                  disabled={loading}
+                  onClick={() =>
+                    onSubmit(
+                      `https://github.com/${repository.githubOwner}/${repository.githubRepo}`,
+                    )
+                  }
+                >
+                  <Plus size={15} />
+                  Submit
+                </button>
+              )}
             </div>
           ))
         )}
@@ -430,4 +478,40 @@ function resultMessage(result: TaskResult) {
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong';
+}
+
+function mergeSubmittedRepository(
+  repositories: GithubRepository[],
+  submittedRepository: Repository,
+) {
+  const nextRepositories = repositories.map((repository) => {
+    if (repository.githubRepoId !== submittedRepository.githubRepoId) {
+      return repository;
+    }
+
+    return {
+      ...repository,
+      submittedRepository,
+    };
+  });
+
+  if (
+    nextRepositories.some(
+      (repository) => repository.githubRepoId === submittedRepository.githubRepoId,
+    )
+  ) {
+    return nextRepositories;
+  }
+
+  return [
+    {
+      githubRepoId: submittedRepository.githubRepoId,
+      githubOwner: submittedRepository.githubOwner,
+      githubRepo: submittedRepository.githubRepo,
+      description: submittedRepository.description,
+      starsCountSnapshot: submittedRepository.starsCountSnapshot,
+      submittedRepository,
+    },
+    ...nextRepositories,
+  ];
 }

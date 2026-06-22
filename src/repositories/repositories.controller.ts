@@ -22,4 +22,12 @@ export class RepositoriesController {
   listMine(@CurrentUser() user: AuthenticatedUser) {
     return this.repositoriesService.listMine(user.userId);
   }
+
+  @Get('github/mine')
+  listGithubMine(@CurrentUser() user: AuthenticatedUser) {
+    return this.repositoriesService.listGithubMine(
+      user.userId,
+      user.githubLogin,
+    );
+  }
 }

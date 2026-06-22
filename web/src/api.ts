@@ -47,6 +47,7 @@ export interface Repository {
   id: string;
   githubOwner: string;
   githubRepo: string;
+  githubRepoId: string;
   description: string | null;
   starsCountSnapshot: number;
   status: string;
@@ -54,6 +55,15 @@ export interface Repository {
     id: string;
     status: string;
   } | null;
+}
+
+export interface GithubRepository {
+  githubRepoId: string;
+  githubOwner: string;
+  githubRepo: string;
+  description: string | null;
+  starsCountSnapshot: number;
+  submittedRepository: Repository | null;
 }
 
 export type TaskResult = {
@@ -103,6 +113,10 @@ export class ApiClient {
 
   listRepositories() {
     return this.request<Repository[]>('/repositories/mine');
+  }
+
+  listGithubRepositories() {
+    return this.request<GithubRepository[]>('/repositories/github/mine');
   }
 
   getCreditsBalance() {
