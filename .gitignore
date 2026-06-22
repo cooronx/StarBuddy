@@ -1,0 +1,9 @@
+.agents
+skills-lock.json
+node_modules
+dist
+.env
+.codex
+.env.local
+coverage
+*.log

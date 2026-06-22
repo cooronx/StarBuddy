@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GithubTokenStatus {
+  active
+  invalid
+  revoked
+}
+
+enum RepositoryStatus {
+  active
+  archived
+  rejected
+}
+
+enum StarTaskStatus {
+  active
+  paused_insufficient_credits
+  paused_by_owner
+  disabled
+}
+
+enum TaskClaimStatus {
+  claimed
+  completed_rewarded
+  completed_no_reward
+  failed
+  cancelled_insufficient_credits
+  skipped
+  expired
+}
+
+enum StarActionStatus {
+  completed_rewarded
+  already_starred_no_reward
+  completed_unrewarded_insufficient_credits
+  failed
+}
+
+enum CreditReason {
+  signup_bonus
+  star_completed_reward
+  repository_star_spend
+}
+
+model User {
+  id             String   @id @default(uuid())
+  githubUserId   BigInt   @unique @map("github_user_id")
+  githubLogin    String   @map("github_login")
+  avatarUrl      String?  @map("avatar_url")
+  creditsBalance Int      @default(0) @map("credits_balance")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  token           GithubToken?
+  repositories    Repository[]
+  claims          TaskClaim[]
+  starActions     StarAction[]
+  creditLedger    CreditLedger[]
+  rateLimitEvents RateLimitEvent[]
+
+  @@map("users")
+}
+
+model GithubToken {
+  id                  String            @id @default(uuid())
+  userId              String            @unique @map("user_id")
+  encryptedToken      String?           @map("encrypted_token")
+  tokenIv             String?           @map("token_iv")
+  tokenAuthTag        String?           @map("token_auth_tag")
+  tokenType           String            @default("fine_grained_pat") @map("token_type")
+  permissionsSnapshot Json?             @map("permissions_snapshot")
+  status              GithubTokenStatus @default(active)
+  lastVerifiedAt      DateTime?         @map("last_verified_at")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("github_tokens")
+}
+
+model Repository {
+  id                 String           @id @default(uuid())
+  ownerUserId        String           @map("owner_user_id")
+  githubOwner        String           @map("github_owner")
+  githubRepo         String           @map("github_repo")
+  githubRepoId       BigInt           @unique @map("github_repo_id")
+  description        String?
+  starsCountSnapshot Int              @default(0) @map("stars_count_snapshot")
+  status             RepositoryStatus @default(active)
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  owner       User         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  starTask    StarTask?
+  claims      TaskClaim[]
+  starActions StarAction[]
+
+  @@unique([githubOwner, githubRepo])
+  @@map("repositories")
+}
+
+model StarTask {
+  id            String         @id @default(uuid())
+  repositoryId  String         @unique @map("repository_id")
+  status        StarTaskStatus @default(active)
+  rewardCredits Int            @default(1) @map("reward_credits")
+  dailyLimit    Int?           @map("daily_limit")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  repository  Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  claims      TaskClaim[]
+  starActions StarAction[]
+
+  @@map("star_tasks")
+}
+
+model TaskClaim {
+  id           String          @id @default(uuid())
+  taskId       String          @map("task_id")
+  repositoryId String          @map("repository_id")
+  userId       String          @map("user_id")
+  status       TaskClaimStatus @default(claimed)
+  claimedAt    DateTime        @default(now()) @map("claimed_at")
+  expiresAt    DateTime        @map("expires_at")
+  completedAt  DateTime?       @map("completed_at")
+
+  task       StarTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([taskId, status])
+  @@map("task_claims")
+}
+
+model StarAction {
+  id               String           @id @default(uuid())
+  taskId           String           @map("task_id")
+  repositoryId     String           @map("repository_id")
+  actorUserId      String           @map("actor_user_id")
+  githubOwner      String           @map("github_owner")
+  githubRepo       String           @map("github_repo")
+  status           StarActionStatus
+  githubVerifiedAt DateTime?        @map("github_verified_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  task       StarTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  actor      User       @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@unique([actorUserId, repositoryId])
+  @@map("star_actions")
+}
+
+model CreditLedger {
+  id                String       @id @default(uuid())
+  userId            String       @map("user_id")
+  amount            Int
+  reason            CreditReason
+  relatedEntityType String?      @map("related_entity_type")
+  relatedEntityId   String?      @map("related_entity_id")
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("credits_ledger")
+}
+
+model RateLimitEvent {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  ipAddress String?  @map("ip_address")
+  eventType String   @map("event_type")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, eventType, createdAt])
+  @@index([ipAddress, eventType, createdAt])
+  @@map("rate_limit_events")
+}
