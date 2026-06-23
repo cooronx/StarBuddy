@@ -114,16 +114,16 @@ http://YOUR_SERVER_IP:5173
 
 ## GitHub Token Permissions
 
-Use a GitHub fine-grained personal access token.
+Use a GitHub classic personal access token.
 
 Required permission:
 
 ```txt
-Account permissions:
-  Starring: Read and write
+Scopes:
+  public_repo
 ```
 
-Keep all unrelated permissions disabled. Metadata access for public repositories is included by GitHub for fine-grained tokens.
+Keep all unrelated scopes disabled. Fine-grained PATs cannot reliably star arbitrary public repositories because repository access is scoped.
 
 ## Useful Commands
 

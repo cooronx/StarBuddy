@@ -87,13 +87,14 @@ openssl rand -base64 32
 
 ## GitHub 授权策略
 
-第一版为了降低实现成本，使用用户手动提交 fine-grained PAT 作为入口。后续可迁移到 GitHub App 或 OAuth。
+第一版为了降低实现成本，使用用户手动提交 classic PAT 作为入口。后续可迁移到 GitHub App 或 OAuth。
 
 必须遵守以下约束：
 
-- 只支持 fine-grained personal access token。
-- 只要求 `Starring: write` 和 `Metadata: read`。
+- 只支持 classic personal access token。
+- 只要求 `public_repo` scope。
 - 不要求 classic token 的 `repo` 或 `user` scope。
+- 拒绝 fine-grained PAT，因为它不能可靠地 star 任意公开仓库。
 - 不把 token 当账号唯一 id。
 - 提交 token 后必须调用 GitHub API 验证 token 对应的 GitHub 用户身份。
 - 数据库保存 `github_user_id` 作为账号标识。
@@ -364,7 +365,7 @@ src/
 
 第一版后端接口：
 
-- `POST /auth/github-token`：提交 GitHub fine-grained PAT，创建/登录本地账号，返回 StarBuddy JWT。
+- `POST /auth/github-token`：提交 GitHub classic PAT，创建/登录本地账号，返回 StarBuddy JWT。
 - `GET /auth/me`：查询当前用户。
 - `DELETE /auth/github-token`：删除当前用户保存的 GitHub token。
 - `POST /repositories`：提交公开 GitHub 仓库并创建 star task。
@@ -380,7 +381,7 @@ src/
 
 前端位于 `web/`，使用 Vite + React。页面是卡片式推荐流：
 
-- 未登录时输入 GitHub fine-grained PAT。
+- 未登录时输入 GitHub classic PAT。
 - 登录后显示 GitHub 用户和 credits。
 - 主卡片展示当前推荐项目。
 - 点击 `Star this project` 后调用 `POST /star-tasks/:claimId/star`。

@@ -74,7 +74,7 @@ model GithubToken {
   encryptedToken      String?           @map("encrypted_token")
   tokenIv             String?           @map("token_iv")
   tokenAuthTag        String?           @map("token_auth_tag")
-  tokenType           String            @default("fine_grained_pat") @map("token_type")
+  tokenType           String            @default("classic_pat") @map("token_type")
   permissionsSnapshot Json?             @map("permissions_snapshot")
   status              GithubTokenStatus @default(active)
   lastVerifiedAt      DateTime?         @map("last_verified_at")

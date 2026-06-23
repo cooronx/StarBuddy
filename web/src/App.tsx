@@ -282,7 +282,7 @@ function LoginPanel({
         <input
           value={token}
           onChange={(event) => setToken(event.target.value)}
-          placeholder="github_pat_..."
+          placeholder="ghp_..."
           type="password"
           autoComplete="off"
         />

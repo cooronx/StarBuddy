@@ -6,6 +6,10 @@ import { GithubService } from '../github/github.service';
 import { TokenCryptoService } from '../token-crypto/token-crypto.service';
 
 const SIGNUP_BONUS_CREDITS = 5;
+const GITHUB_TOKEN_TYPE = 'classic_pat';
+const GITHUB_TOKEN_PERMISSIONS = {
+  required: ['classic:public_repo'],
+};
 
 @Injectable()
 export class AuthService {
@@ -17,8 +21,9 @@ export class AuthService {
   ) {}
 
   async bindGithubToken(token: string) {
-    const githubUser = await this.github.getAuthenticatedUser(token);
-    const encrypted = this.tokenCrypto.encryptToken(token);
+    const normalizedToken = token.trim();
+    const githubUser = await this.github.getAuthenticatedUser(normalizedToken);
+    const encrypted = this.tokenCrypto.encryptToken(normalizedToken);
 
     const user = await this.prisma.$transaction(async (tx) => {
       const existingUser = await tx.user.findUnique({
@@ -49,7 +54,8 @@ export class AuthService {
             encryptedToken: encrypted.encryptedToken,
             tokenIv: encrypted.tokenIv,
             tokenAuthTag: encrypted.tokenAuthTag,
-            permissionsSnapshot: { required: ['Starring:write', 'Metadata:read'] },
+            tokenType: GITHUB_TOKEN_TYPE,
+            permissionsSnapshot: GITHUB_TOKEN_PERMISSIONS,
             status: 'active',
             lastVerifiedAt: new Date(),
           },
@@ -73,7 +79,8 @@ export class AuthService {
           encryptedToken: encrypted.encryptedToken,
           tokenIv: encrypted.tokenIv,
           tokenAuthTag: encrypted.tokenAuthTag,
-          permissionsSnapshot: { required: ['Starring:write', 'Metadata:read'] },
+          tokenType: GITHUB_TOKEN_TYPE,
+          permissionsSnapshot: GITHUB_TOKEN_PERMISSIONS,
           status: 'active',
           lastVerifiedAt: new Date(),
         },
@@ -81,7 +88,8 @@ export class AuthService {
           encryptedToken: encrypted.encryptedToken,
           tokenIv: encrypted.tokenIv,
           tokenAuthTag: encrypted.tokenAuthTag,
-          permissionsSnapshot: { required: ['Starring:write', 'Metadata:read'] },
+          tokenType: GITHUB_TOKEN_TYPE,
+          permissionsSnapshot: GITHUB_TOKEN_PERMISSIONS,
           status: 'active',
           lastVerifiedAt: new Date(),
         },
