@@ -21,10 +21,19 @@ import {
   TaskResult,
   User,
 } from './api';
+import {
+  formatLedgerReason,
+  formatStatus,
+  getInitialLanguage,
+  Language,
+  LANGUAGE_STORAGE_KEY,
+  translate,
+} from './i18n';
 
 const ACCESS_TOKEN_KEY = 'starbuddy_access_token';
 
 export function App() {
+  const [language, setLanguage] = useState<Language>(() => getInitialLanguage());
   const [accessToken, setAccessToken] = useState<string | null>(() =>
     localStorage.getItem(ACCESS_TOKEN_KEY),
   );
@@ -39,6 +48,11 @@ export function App() {
   const [loading, setLoading] = useState(false);
 
   const api = useMemo(() => new ApiClient(() => accessToken), [accessToken]);
+  const t = useCallback(
+    (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
+      translate(language, key, values),
+    [language],
+  );
 
   const refresh = useCallback(async () => {
     if (!accessToken) {
@@ -60,7 +74,9 @@ export function App() {
       setLedger(history);
       setRepositories(mine);
     } catch (refreshError) {
-      setError(errorMessage(refreshError));
+      setError(
+        errorMessage(refreshError, (key) => translate(getInitialLanguage(), key)),
+      );
     } finally {
       setLoading(false);
     }
@@ -79,9 +95,9 @@ export function App() {
       localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
       setAccessToken(response.accessToken);
       setUser(response.user);
-      setMessage('GitHub token bound. Loading your queue.');
+      setMessage(t('loginBound'));
     } catch (loginError) {
-      setError(errorMessage(loginError));
+      setError(errorMessage(loginError, t));
     } finally {
       setLoading(false);
     }
@@ -94,9 +110,13 @@ export function App() {
     try {
       const repository = await api.createRepository(url);
       setRepositories((items) => mergeSubmittedRepository(items, repository));
-      setMessage(`${repository.githubOwner}/${repository.githubRepo} added.`);
+      setMessage(
+        t('projectAdded', {
+          repository: `${repository.githubOwner}/${repository.githubRepo}`,
+        }),
+      );
     } catch (repositoryError) {
-      setError(errorMessage(repositoryError));
+      setError(errorMessage(repositoryError, t));
     } finally {
       setLoading(false);
     }
@@ -108,10 +128,10 @@ export function App() {
     setMessage('');
     try {
       const result = await api.starClaim(claimId);
-      setMessage(resultMessage(result));
+      setMessage(resultMessage(language, result));
       await refresh();
     } catch (starError) {
-      setError(errorMessage(starError));
+      setError(errorMessage(starError, t));
     } finally {
       setLoading(false);
     }
@@ -123,11 +143,11 @@ export function App() {
     setMessage('');
     try {
       await api.skipClaim(claimId);
-      setMessage('Skipped. Loading another project.');
+      setMessage(t('skippedLoading'));
       const task = await api.getCurrentTask();
       setCurrentTask(task);
     } catch (skipError) {
-      setError(errorMessage(skipError));
+      setError(errorMessage(skipError, t));
     } finally {
       setLoading(false);
     }
@@ -144,6 +164,11 @@ export function App() {
     setError('');
   }
 
+  function handleLanguageChange(nextLanguage: Language) {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+    setLanguage(nextLanguage);
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -153,7 +178,7 @@ export function App() {
           </div>
           <div>
             <h1>StarBuddy</h1>
-            <p>Discover projects, star deliberately, earn credits.</p>
+            <p>{t('tagline')}</p>
           </div>
         </div>
 
@@ -162,38 +187,57 @@ export function App() {
             {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : null}
             <div>
               <strong>{user.githubLogin}</strong>
-              <span>{user.creditsBalance} credits</span>
+              <span>
+                {user.creditsBalance} {t('credits').toLowerCase()}
+              </span>
             </div>
-            <button className="icon-button" onClick={refresh} title="Refresh">
+            <LanguageSwitcher
+              language={language}
+              onChange={handleLanguageChange}
+              t={t}
+            />
+            <button className="icon-button" onClick={refresh} title={t('refresh')}>
               {loading ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
             </button>
             <button className="ghost-button" onClick={handleLogout}>
-              Sign out
+              {t('signOut')}
             </button>
           </div>
-        ) : null}
+        ) : (
+          <div className="topbar-actions">
+            <LanguageSwitcher
+              language={language}
+              onChange={handleLanguageChange}
+              t={t}
+            />
+          </div>
+        )}
       </header>
 
       {message ? <div className="notice">{message}</div> : null}
       {error ? <div className="error">{error}</div> : null}
 
       {!accessToken ? (
-        <LoginPanel loading={loading} onLogin={handleLogin} />
+        <LoginPanel loading={loading} t={t} onLogin={handleLogin} />
       ) : (
         <section className="workspace">
           <aside className="side-panel">
             <RepositoryList
+              language={language}
               loading={loading}
               repositories={repositories}
+              t={t}
               onSubmit={handleRepositorySubmit}
             />
-            <RepositoryForm loading={loading} onSubmit={handleRepositorySubmit} />
+            <RepositoryForm loading={loading} t={t} onSubmit={handleRepositorySubmit} />
           </aside>
 
           <section className="main-panel">
             <TaskCard
+              language={language}
               task={currentTask}
               loading={loading}
+              t={t}
               onInitialLoad={refresh}
               onStar={handleStar}
               onSkip={handleSkip}
@@ -201,7 +245,7 @@ export function App() {
           </section>
 
           <aside className="side-panel">
-            <CreditPanel user={user} ledger={ledger} />
+            <CreditPanel language={language} user={user} ledger={ledger} t={t} />
           </aside>
         </section>
       )}
@@ -211,9 +255,11 @@ export function App() {
 
 function LoginPanel({
   loading,
+  t,
   onLogin,
 }: {
   loading: boolean;
+  t: Translator;
   onLogin: (token: string) => void;
 }) {
   const [token, setToken] = useState('');
@@ -229,8 +275,8 @@ function LoginPanel({
         <div className="panel-heading">
           <KeyRound size={22} />
           <div>
-            <h2>Bind GitHub token</h2>
-            <p>Use a fine-grained PAT with Starring write and Metadata read.</p>
+            <h2>{t('bindGithubToken')}</h2>
+            <p>{t('githubTokenHelp')}</p>
           </div>
         </div>
         <input
@@ -242,7 +288,7 @@ function LoginPanel({
         />
         <button className="primary-button" disabled={loading || !token}>
           {loading ? <Loader2 className="spin" size={18} /> : <Github size={18} />}
-          Continue
+          {t('continue')}
         </button>
       </form>
     </section>
@@ -251,9 +297,11 @@ function LoginPanel({
 
 function RepositoryForm({
   loading,
+  t,
   onSubmit,
 }: {
   loading: boolean;
+  t: Translator;
   onSubmit: (url: string) => void;
 }) {
   const [url, setUrl] = useState('');
@@ -268,7 +316,7 @@ function RepositoryForm({
     <form className="tool-panel" onSubmit={submit}>
       <div className="panel-title">
         <Plus size={18} />
-        <h2>Add your repository</h2>
+        <h2>{t('addRepository')}</h2>
       </div>
       <input
         value={url}
@@ -277,19 +325,23 @@ function RepositoryForm({
       />
       <button className="secondary-button" disabled={loading || !url}>
         <Send size={17} />
-        Submit
+        {t('submit')}
       </button>
     </form>
   );
 }
 
 function RepositoryList({
+  language,
   loading,
   repositories,
+  t,
   onSubmit,
 }: {
+  language: Language;
   loading: boolean;
   repositories: GithubRepository[];
+  t: Translator;
   onSubmit: (url: string) => void;
 }) {
   const submittedCount = repositories.filter(
@@ -300,47 +352,65 @@ function RepositoryList({
     <section className="tool-panel">
       <div className="panel-title">
         <Github size={18} />
-        <h2>Your projects</h2>
+        <h2>{t('yourProjects')}</h2>
       </div>
       {repositories.length > 0 ? (
         <p className="muted">
-          {submittedCount}/{repositories.length} submitted to StarBuddy.
+          {t('submittedCount', {
+            submitted: submittedCount,
+            total: repositories.length,
+          })}
         </p>
       ) : null}
-      <div className="compact-list">
-        {repositories.length === 0 ? (
-          <p className="muted">No public GitHub repositories found.</p>
+      <div className="compact-list repository-list">
+        {loading && repositories.length === 0 ? (
+          <div className="loading-state">
+            <Loader2 className="spin" size={20} />
+            <span>{t('loadingProjects')}</span>
+          </div>
+        ) : repositories.length === 0 ? (
+          <p className="muted">{t('noPublicRepositories')}</p>
         ) : (
-          repositories.map((repository) => (
-            <div className="repository-row" key={repository.githubRepoId}>
-              <div>
-                <strong>
-                  {repository.githubOwner}/{repository.githubRepo}
-                </strong>
-                <span>
-                  {repository.submittedRepository?.starTask?.status ??
-                    repository.submittedRepository?.status ??
-                    `${repository.starsCountSnapshot} stars`}
-                </span>
+          <>
+            {loading ? (
+              <div className="loading-state compact-loading">
+                <Loader2 className="spin" size={18} />
+                <span>{t('refreshingProjects')}</span>
               </div>
-              {repository.submittedRepository ? (
-                <span className="status-pill">Submitted</span>
-              ) : (
-                <button
-                  className="inline-button"
-                  disabled={loading}
-                  onClick={() =>
-                    onSubmit(
-                      `https://github.com/${repository.githubOwner}/${repository.githubRepo}`,
-                    )
-                  }
-                >
-                  <Plus size={15} />
-                  Submit
-                </button>
-              )}
-            </div>
-          ))
+            ) : null}
+            {repositories.map((repository) => (
+              <div className="repository-row" key={repository.githubRepoId}>
+                <div>
+                  <strong>
+                    {repository.githubOwner}/{repository.githubRepo}
+                  </strong>
+                  <span>
+                    {repository.submittedRepository?.starTask?.status
+                      ? formatStatus(language, repository.submittedRepository.starTask.status)
+                      : repository.submittedRepository?.status
+                        ? formatStatus(language, repository.submittedRepository.status)
+                        : `${repository.starsCountSnapshot} ${t('stars')}`}
+                  </span>
+                </div>
+                {repository.submittedRepository ? (
+                  <span className="status-pill">{t('submitted')}</span>
+                ) : (
+                  <button
+                    className="inline-button"
+                    disabled={loading}
+                    onClick={() =>
+                      onSubmit(
+                        `https://github.com/${repository.githubOwner}/${repository.githubRepo}`,
+                      )
+                    }
+                  >
+                    <Plus size={15} />
+                    {t('submit')}
+                  </button>
+                )}
+              </div>
+            ))}
+          </>
         )}
       </div>
     </section>
@@ -348,14 +418,18 @@ function RepositoryList({
 }
 
 function TaskCard({
+  language,
   task,
   loading,
+  t,
   onInitialLoad,
   onStar,
   onSkip,
 }: {
+  language: Language;
   task: CurrentTask | EmptyTask | null;
   loading: boolean;
+  t: Translator;
   onInitialLoad: () => void;
   onStar: (claimId: string) => void;
   onSkip: (claimId: string) => void;
@@ -364,11 +438,11 @@ function TaskCard({
     return (
       <section className="project-card empty-card">
         <Star size={34} />
-        <h2>Your project queue is ready.</h2>
-        <p>Load the first recommendation and decide whether to star it.</p>
+        <h2>{t('projectQueueReady')}</h2>
+        <p>{t('projectQueueReadyHelp')}</p>
         <button className="primary-button" disabled={loading} onClick={onInitialLoad}>
           {loading ? <Loader2 className="spin" size={18} /> : <ArrowRight size={18} />}
-          Load recommendation
+          {t('loadRecommendation')}
         </button>
       </section>
     );
@@ -378,11 +452,11 @@ function TaskCard({
     return (
       <section className="project-card empty-card">
         <Github size={34} />
-        <h2>No projects available</h2>
-        <p>Submit your own repository or refresh after more users join.</p>
+        <h2>{t('noProjectsAvailable')}</h2>
+        <p>{t('noProjectsAvailableHelp')}</p>
         <button className="secondary-button" disabled={loading} onClick={onInitialLoad}>
           <RefreshCw size={17} />
-          Refresh
+          {t('refresh')}
         </button>
       </section>
     );
@@ -391,21 +465,23 @@ function TaskCard({
   return (
     <section className="project-card">
       <div className="project-meta">
-        <span>Recommended project</span>
-        <span>+{task.rewardCredits} credit</span>
+        <span>{t('recommendedProject')}</span>
+        <span>
+          +{task.rewardCredits} {t('creditUnit')}
+        </span>
       </div>
       <h2>{task.repository.fullName}</h2>
       <p className="description">
-        {task.repository.description ?? 'No repository description provided.'}
+        {task.repository.description ?? t('descriptionFallback')}
       </p>
       <div className="stats-strip">
         <div>
           <strong>{task.repository.starsCountSnapshot}</strong>
-          <span>stars</span>
+          <span>{t('stars')}</span>
         </div>
         <div>
-          <strong>{new Date(task.expiresAt).toLocaleTimeString()}</strong>
-          <span>claim expires</span>
+          <strong>{new Date(task.expiresAt).toLocaleTimeString(language === 'zh' ? 'zh-CN' : 'en-US')}</strong>
+          <span>{t('claimExpires')}</span>
         </div>
       </div>
       <div className="card-actions">
@@ -415,7 +491,7 @@ function TaskCard({
           onClick={() => onSkip(task.claimId)}
         >
           <X size={18} />
-          Skip
+          {t('skip')}
         </button>
         <button
           className="primary-action"
@@ -423,7 +499,7 @@ function TaskCard({
           onClick={() => onStar(task.claimId)}
         >
           {loading ? <Loader2 className="spin" size={20} /> : <Star size={20} />}
-          Star this project
+          {t('starThisProject')}
         </button>
       </div>
     </section>
@@ -431,22 +507,26 @@ function TaskCard({
 }
 
 function CreditPanel({
+  language,
   user,
   ledger,
+  t,
 }: {
+  language: Language;
   user: User | null;
   ledger: CreditLedgerEntry[];
+  t: Translator;
 }) {
   return (
     <section className="tool-panel">
       <div className="panel-title">
         <WalletCards size={18} />
-        <h2>Credits</h2>
+        <h2>{t('credits')}</h2>
       </div>
       <div className="balance">{user?.creditsBalance ?? 0}</div>
       <div className="compact-list">
         {ledger.length === 0 ? (
-          <p className="muted">No credit activity yet.</p>
+          <p className="muted">{t('noCreditActivity')}</p>
         ) : (
           ledger.slice(0, 8).map((entry) => (
             <div className="compact-row" key={entry.id}>
@@ -454,7 +534,7 @@ function CreditPanel({
                 {entry.amount > 0 ? '+' : ''}
                 {entry.amount}
               </strong>
-              <span>{entry.reason.replaceAll('_', ' ')}</span>
+              <span>{formatLedgerReason(language, entry.reason)}</span>
             </div>
           ))
         )}
@@ -463,21 +543,54 @@ function CreditPanel({
   );
 }
 
-function resultMessage(result: TaskResult) {
-  if (result.status === 'completed_rewarded') {
-    return `Starred ${result.repository}. You earned 1 credit.`;
-  }
-  if (result.status === 'already_starred_no_reward') {
-    return `${result.repository} was already starred. No credits changed.`;
-  }
-  if (result.status === 'completed_unrewarded_insufficient_credits') {
-    return `${result.repository} was starred, but the owner had no credits left.`;
-  }
-  return result.status.replaceAll('_', ' ');
+function LanguageSwitcher({
+  language,
+  t,
+  onChange,
+}: {
+  language: Language;
+  t: Translator;
+  onChange: (language: Language) => void;
+}) {
+  return (
+    <div className="language-switcher" aria-label="Language">
+      {(['en', 'zh'] as const).map((option) => (
+        <button
+          className={language === option ? 'active' : undefined}
+          key={option}
+          onClick={() => onChange(option)}
+          type="button"
+        >
+          {option === 'en' ? t('languageEnglish') : t('languageChinese')}
+        </button>
+      ))}
+    </div>
+  );
 }
 
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong';
+type Translator = (
+  key: Parameters<typeof translate>[1],
+  values?: Parameters<typeof translate>[2],
+) => string;
+
+function resultMessage(language: Language, result: TaskResult) {
+  const t = (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
+    translate(language, key, values);
+
+  if (result.status === 'completed_rewarded') {
+    return t('starCompletedRewarded', { repository: result.repository ?? '' });
+  }
+  if (result.status === 'already_starred_no_reward') {
+    return t('alreadyStarredNoReward', { repository: result.repository ?? '' });
+  }
+  if (result.status === 'completed_unrewarded_insufficient_credits') {
+    return t('repositoryNoCredits', { repository: result.repository ?? '' });
+  }
+  return formatStatus(language, result.status);
+}
+
+function errorMessage(error: unknown, t: Translator) {
+  return error instanceof Error ? error.message : t('errorFallback');
 }
 
 function mergeSubmittedRepository(

@@ -108,6 +108,37 @@ h1 {
   display: grid;
 }
 
+.topbar-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.language-switcher {
+  display: inline-flex;
+  min-height: 34px;
+  overflow: hidden;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #f7f9fb;
+}
+
+.language-switcher button {
+  min-width: 48px;
+  padding: 0 10px;
+  border: 0;
+  color: #667386;
+  background: transparent;
+}
+
+.language-switcher button + button {
+  border-left: 1px solid #cbd5df;
+}
+
+.language-switcher button.active {
+  color: #ffffff;
+  background: #0d6b6f;
+}
+
 .notice,
 .error {
   max-width: 1180px;
@@ -346,6 +377,44 @@ input:focus {
   gap: 10px;
 }
 
+.repository-list {
+  max-height: min(52vh, 460px);
+  min-height: 72px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+}
+
+.repository-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.repository-list::-webkit-scrollbar-track {
+  background: #eef2f6;
+  border-radius: 999px;
+}
+
+.repository-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #b8c4d2;
+}
+
+.loading-state {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #667386;
+  font-size: 14px;
+}
+
+.compact-loading {
+  min-height: 34px;
+  border-bottom: 1px solid #edf1f5;
+}
+
 .compact-row {
   display: grid;
   gap: 3px;
@@ -481,6 +550,10 @@ input:focus {
 
   .repository-row {
     grid-template-columns: 1fr;
+  }
+
+  .repository-list {
+    max-height: 360px;
   }
 
   .inline-button {
