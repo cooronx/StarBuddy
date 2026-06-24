@@ -8,13 +8,11 @@ import { DatabaseModule } from './database/database.module';
 import { GithubModule } from './github/github.module';
 import { RepositoriesModule } from './repositories/repositories.module';
 import { StarTasksModule } from './star-tasks/star-tasks.module';
-import { TokenCryptoModule } from './token-crypto/token-crypto.module';
 
 @Module({
   imports: [
     ConfigModule,
     DatabaseModule,
-    TokenCryptoModule,
     JwtModule.registerAsync({
       global: true,
       imports: [ConfigModule],

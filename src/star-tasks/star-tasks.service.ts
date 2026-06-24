@@ -121,7 +121,7 @@ export class StarTasksService {
       return { status: 'claim_expired' };
     }
 
-    const token = await this.authService.getActivePlainToken(userId);
+    const token = await this.authService.getActiveGithubAccessToken(userId);
     const repository = claim.repository;
 
     if (repository.ownerUserId === userId) {

@@ -14,7 +14,7 @@ export class RepositoriesService {
 
   async create(userId: string, url: string) {
     const { owner, repo } = parseGithubRepositoryUrl(url);
-    const token = await this.authService.getActivePlainToken(userId);
+    const token = await this.authService.getActiveGithubAccessToken(userId);
     const githubRepo = await this.github.getRepository(owner, repo, token);
 
     if (githubRepo.isPrivate) {
@@ -63,7 +63,7 @@ export class RepositoriesService {
   }
 
   async listGithubMine(userId: string, githubLogin: string) {
-    const token = await this.authService.getActivePlainToken(userId);
+    const token = await this.authService.getActiveGithubAccessToken(userId);
     const [githubRepositories, submittedRepositories] = await Promise.all([
       this.github.listPublicRepositories(githubLogin, token),
       this.prisma.repository.findMany({

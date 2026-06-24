@@ -1,41 +1,61 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { CreditReason } from '@prisma/client';
+import { createHash, randomBytes } from 'crypto';
+import { AppConfigService } from '../config/app-config.service';
+import { CredentialCryptoService } from '../credential-crypto/credential-crypto.service';
 import { PrismaService } from '../database/prisma.service';
 import { GithubService } from '../github/github.service';
-import { TokenCryptoService } from '../token-crypto/token-crypto.service';
 
 const SIGNUP_BONUS_CREDITS = 5;
-const GITHUB_TOKEN_TYPE = 'classic_pat';
-const GITHUB_TOKEN_PERMISSIONS = {
-  required: ['classic:public_repo'],
-};
+const REQUIRED_GITHUB_SCOPES = ['read:user', 'public_repo'];
+const LOGIN_CODE_TTL_MS = 60_000;
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly github: GithubService,
-    private readonly tokenCrypto: TokenCryptoService,
+    private readonly credentialCrypto: CredentialCryptoService,
     private readonly jwtService: JwtService,
+    private readonly config: AppConfigService,
   ) {}
 
-  async bindGithubToken(token: string) {
-    const normalizedToken = token.trim();
-    const githubUser = await this.github.getAuthenticatedUser(normalizedToken);
-    const encrypted = this.tokenCrypto.encryptToken(normalizedToken);
+  getGithubOAuthUrl(state: string): string {
+    const url = new URL('https://github.com/login/oauth/authorize');
+    url.searchParams.set('client_id', this.config.githubOAuthClientId);
+    url.searchParams.set('redirect_uri', this.config.githubOAuthCallbackUrl);
+    url.searchParams.set('scope', REQUIRED_GITHUB_SCOPES.join(' '));
+    url.searchParams.set('state', state);
+    return url.toString();
+  }
+
+  async handleGithubOAuthCallback(code: string): Promise<{ loginCode: string }> {
+    const accessToken = await this.github.exchangeOAuthCode({
+      clientId: this.config.githubOAuthClientId,
+      clientSecret: this.config.githubOAuthClientSecret,
+      code,
+      redirectUri: this.config.githubOAuthCallbackUrl,
+    });
+    const authenticated = await this.github.getAuthenticatedUserWithScopes(
+      accessToken,
+    );
+
+    assertRequiredScopes(authenticated.scopes);
+
+    const encrypted = this.credentialCrypto.encryptSecret(accessToken);
 
     const user = await this.prisma.$transaction(async (tx) => {
       const existingUser = await tx.user.findUnique({
-        where: { githubUserId: githubUser.id },
+        where: { githubUserId: authenticated.user.id },
       });
 
       if (!existingUser) {
         const created = await tx.user.create({
           data: {
-            githubUserId: githubUser.id,
-            githubLogin: githubUser.login,
-            avatarUrl: githubUser.avatarUrl,
+            githubUserId: authenticated.user.id,
+            githubLogin: authenticated.user.login,
+            avatarUrl: authenticated.user.avatarUrl,
             creditsBalance: SIGNUP_BONUS_CREDITS,
           },
         });
@@ -48,14 +68,13 @@ export class AuthService {
           },
         });
 
-        await tx.githubToken.create({
+        await tx.githubAuthorization.create({
           data: {
             userId: created.id,
-            encryptedToken: encrypted.encryptedToken,
-            tokenIv: encrypted.tokenIv,
-            tokenAuthTag: encrypted.tokenAuthTag,
-            tokenType: GITHUB_TOKEN_TYPE,
-            permissionsSnapshot: GITHUB_TOKEN_PERMISSIONS,
+            encryptedAccessToken: encrypted.encryptedSecret,
+            accessTokenIv: encrypted.secretIv,
+            accessTokenAuthTag: encrypted.secretAuthTag,
+            scopes: authenticated.scopes,
             status: 'active',
             lastVerifiedAt: new Date(),
           },
@@ -67,35 +86,80 @@ export class AuthService {
       const updated = await tx.user.update({
         where: { id: existingUser.id },
         data: {
-          githubLogin: githubUser.login,
-          avatarUrl: githubUser.avatarUrl,
+          githubLogin: authenticated.user.login,
+          avatarUrl: authenticated.user.avatarUrl,
         },
       });
 
-      await tx.githubToken.upsert({
+      await tx.githubAuthorization.upsert({
         where: { userId: updated.id },
         create: {
           userId: updated.id,
-          encryptedToken: encrypted.encryptedToken,
-          tokenIv: encrypted.tokenIv,
-          tokenAuthTag: encrypted.tokenAuthTag,
-          tokenType: GITHUB_TOKEN_TYPE,
-          permissionsSnapshot: GITHUB_TOKEN_PERMISSIONS,
+          encryptedAccessToken: encrypted.encryptedSecret,
+          accessTokenIv: encrypted.secretIv,
+          accessTokenAuthTag: encrypted.secretAuthTag,
+          scopes: authenticated.scopes,
           status: 'active',
           lastVerifiedAt: new Date(),
         },
         update: {
-          encryptedToken: encrypted.encryptedToken,
-          tokenIv: encrypted.tokenIv,
-          tokenAuthTag: encrypted.tokenAuthTag,
-          tokenType: GITHUB_TOKEN_TYPE,
-          permissionsSnapshot: GITHUB_TOKEN_PERMISSIONS,
+          encryptedAccessToken: encrypted.encryptedSecret,
+          accessTokenIv: encrypted.secretIv,
+          accessTokenAuthTag: encrypted.secretAuthTag,
+          scopes: authenticated.scopes,
           status: 'active',
           lastVerifiedAt: new Date(),
         },
       });
 
       return updated;
+    });
+
+    const loginCode = randomBytes(32).toString('base64url');
+    await this.prisma.oauthLoginCode.create({
+      data: {
+        codeHash: hashLoginCode(loginCode),
+        userId: user.id,
+        expiresAt: new Date(Date.now() + LOGIN_CODE_TTL_MS),
+      },
+    });
+
+    return {
+      loginCode,
+    };
+  }
+
+  async createSession(loginCode: string) {
+    const codeHash = hashLoginCode(loginCode);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const codeRecord = await tx.oauthLoginCode.findUnique({
+        where: { codeHash },
+        include: { user: true },
+      });
+
+      if (
+        !codeRecord ||
+        codeRecord.consumedAt ||
+        codeRecord.expiresAt <= new Date()
+      ) {
+        throw new UnauthorizedException('Login code is invalid or expired');
+      }
+
+      const consumed = await tx.oauthLoginCode.updateMany({
+        where: {
+          id: codeRecord.id,
+          consumedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        data: { consumedAt: new Date() },
+      });
+
+      if (consumed.count !== 1) {
+        throw new UnauthorizedException('Login code is invalid or expired');
+      }
+
+      return codeRecord.user;
     });
 
     return {
@@ -107,22 +171,22 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      include: { token: true },
+      include: { githubAuthorization: true },
     });
 
     return {
       ...serializeUser(user),
-      githubTokenStatus: user.token?.status ?? null,
+      githubAuthorizationStatus: user.githubAuthorization?.status ?? null,
     };
   }
 
-  async revokeGithubToken(userId: string) {
-    await this.prisma.githubToken.update({
+  async revokeGithubAuthorization(userId: string) {
+    await this.prisma.githubAuthorization.update({
       where: { userId },
       data: {
-        encryptedToken: null,
-        tokenIv: null,
-        tokenAuthTag: null,
+        encryptedAccessToken: null,
+        accessTokenIv: null,
+        accessTokenAuthTag: null,
         status: 'revoked',
       },
     });
@@ -130,25 +194,25 @@ export class AuthService {
     return { status: 'revoked' };
   }
 
-  async getActivePlainToken(userId: string): Promise<string> {
-    const token = await this.prisma.githubToken.findUnique({
+  async getActiveGithubAccessToken(userId: string): Promise<string> {
+    const authorization = await this.prisma.githubAuthorization.findUnique({
       where: { userId },
     });
 
     if (
-      !token ||
-      token.status !== 'active' ||
-      !token.encryptedToken ||
-      !token.tokenIv ||
-      !token.tokenAuthTag
+      !authorization ||
+      authorization.status !== 'active' ||
+      !authorization.encryptedAccessToken ||
+      !authorization.accessTokenIv ||
+      !authorization.accessTokenAuthTag
     ) {
-      throw new UnauthorizedException('GitHub token is not active');
+      throw new UnauthorizedException('GitHub authorization is not active');
     }
 
-    return this.tokenCrypto.decryptToken({
-      encryptedToken: token.encryptedToken,
-      tokenIv: token.tokenIv,
-      tokenAuthTag: token.tokenAuthTag,
+    return this.credentialCrypto.decryptSecret({
+      encryptedSecret: authorization.encryptedAccessToken,
+      secretIv: authorization.accessTokenIv,
+      secretAuthTag: authorization.accessTokenAuthTag,
     });
   }
 
@@ -163,6 +227,20 @@ export class AuthService {
       github_login: githubLogin,
     });
   }
+}
+
+function assertRequiredScopes(scopes: string[]) {
+  const missingScopes = REQUIRED_GITHUB_SCOPES.filter(
+    (scope) => !scopes.includes(scope),
+  );
+
+  if (missingScopes.length > 0) {
+    throw new BadRequestException('GitHub authorization is missing required scopes');
+  }
+}
+
+function hashLoginCode(code: string): string {
+  return createHash('sha256').update(code).digest('hex');
 }
 
 function serializeUser(user: {

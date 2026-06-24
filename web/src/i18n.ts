@@ -5,23 +5,27 @@ export const LANGUAGE_STORAGE_KEY = 'starbuddy_language';
 type TranslationKey =
   | 'addRepository'
   | 'alreadyStarredNoReward'
-  | 'bindGithubToken'
   | 'claimExpires'
   | 'continue'
+  | 'continueWithGithub'
   | 'credits'
   | 'creditUnit'
   | 'descriptionFallback'
   | 'errorFallback'
-  | 'githubTokenHelp'
+  | 'githubOAuthHelp'
   | 'languageEnglish'
   | 'languageChinese'
   | 'loadRecommendation'
-  | 'loginBound'
+  | 'loginComplete'
   | 'loadingProjects'
   | 'noCreditActivity'
   | 'noProjectsAvailable'
   | 'noProjectsAvailableHelp'
   | 'noPublicRepositories'
+  | 'oauthAccessDenied'
+  | 'oauthFailed'
+  | 'oauthInsufficientScope'
+  | 'oauthStateMismatch'
   | 'projectAdded'
   | 'projectQueueReady'
   | 'projectQueueReadyHelp'
@@ -47,23 +51,29 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
     addRepository: 'Add your repository',
     alreadyStarredNoReward: '{repository} was already starred. No credits changed.',
-    bindGithubToken: 'Bind GitHub token',
     claimExpires: 'claim expires',
     continue: 'Continue',
+    continueWithGithub: 'Continue with GitHub',
     credits: 'Credits',
     creditUnit: 'credit',
     descriptionFallback: 'No repository description provided.',
     errorFallback: 'Something went wrong',
-    githubTokenHelp: 'Use a classic GitHub PAT with only the public_repo scope.',
+    githubOAuthHelp:
+      'Authorize StarBuddy to read your GitHub profile and star public repositories when you run tasks.',
     languageEnglish: 'EN',
     languageChinese: '中文',
     loadRecommendation: 'Load recommendation',
-    loginBound: 'GitHub token bound. Loading your queue.',
+    loginComplete: 'GitHub authorization complete. Loading your queue.',
     loadingProjects: 'Loading projects...',
     noCreditActivity: 'No credit activity yet.',
     noProjectsAvailable: 'No projects available',
     noProjectsAvailableHelp: 'Submit your own repository or refresh after more users join.',
     noPublicRepositories: 'No public GitHub repositories found.',
+    oauthAccessDenied: 'GitHub authorization was cancelled.',
+    oauthFailed: 'GitHub authorization failed. Try again.',
+    oauthInsufficientScope:
+      'StarBuddy needs read:user and public_repo permissions to continue.',
+    oauthStateMismatch: 'Authorization session expired. Try again.',
     projectAdded: '{repository} added.',
     projectQueueReady: 'Your project queue is ready.',
     projectQueueReadyHelp: 'Load the first recommendation and decide whether to star it.',
@@ -86,23 +96,28 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
   zh: {
     addRepository: '添加你的仓库',
     alreadyStarredNoReward: '{repository} 已经 Star 过，积分未变化。',
-    bindGithubToken: '绑定 GitHub Token',
     claimExpires: '任务过期时间',
     continue: '继续',
+    continueWithGithub: '使用 GitHub 继续',
     credits: '积分',
     creditUnit: '积分',
     descriptionFallback: '这个仓库没有提供描述。',
     errorFallback: '出错了',
-    githubTokenHelp: '使用 classic GitHub PAT，并且只勾选 public_repo scope。',
+    githubOAuthHelp:
+      '授权 StarBuddy 读取你的 GitHub 资料，并在你执行任务时为公开仓库 Star。',
     languageEnglish: 'EN',
     languageChinese: '中文',
     loadRecommendation: '加载推荐项目',
-    loginBound: 'GitHub Token 已绑定，正在加载你的队列。',
+    loginComplete: 'GitHub 授权完成，正在加载你的队列。',
     loadingProjects: '正在加载项目...',
     noCreditActivity: '暂无积分记录。',
     noProjectsAvailable: '暂无可推荐项目',
     noProjectsAvailableHelp: '提交你自己的仓库，或等更多用户加入后再刷新。',
     noPublicRepositories: '没有找到公开 GitHub 仓库。',
+    oauthAccessDenied: 'GitHub 授权已取消。',
+    oauthFailed: 'GitHub 授权失败，请重试。',
+    oauthInsufficientScope: 'StarBuddy 需要 read:user 和 public_repo 权限才能继续。',
+    oauthStateMismatch: '授权会话已过期，请重试。',
     projectAdded: '{repository} 已添加。',
     projectQueueReady: '你的项目队列已就绪。',
     projectQueueReadyHelp: '加载第一个推荐项目，然后决定是否 Star。',

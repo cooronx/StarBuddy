@@ -2,7 +2,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Github,
-  KeyRound,
   Loader2,
   Plus,
   RefreshCw,
@@ -12,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import {
+  API_BASE_URL,
   ApiClient,
   CreditLedgerEntry,
   CurrentTask,
@@ -86,21 +86,55 @@ export function App() {
     void refresh();
   }, [refresh]);
 
-  async function handleLogin(token: string) {
+  useEffect(() => {
+    if (window.location.pathname !== '/auth/callback') {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const callbackError = params.get('error');
+    const code = params.get('code');
+    window.history.replaceState({}, '', '/');
+
+    if (callbackError) {
+      clearSessionState();
+      setLoading(false);
+      setError(oauthErrorMessage(callbackError, t));
+      return;
+    }
+
+    if (!code) {
+      clearSessionState();
+      setLoading(false);
+      setError(t('oauthFailed'));
+      return;
+    }
+
     setLoading(true);
     setError('');
     setMessage('');
-    try {
-      const response = await api.bindGithubToken(token);
-      localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
-      setAccessToken(response.accessToken);
-      setUser(response.user);
-      setMessage(t('loginBound'));
-    } catch (loginError) {
-      setError(errorMessage(loginError, t));
-    } finally {
-      setLoading(false);
-    }
+    api
+      .createSession(code)
+      .then((response) => {
+        localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
+        setAccessToken(response.accessToken);
+        setUser(response.user);
+        setMessage(t('loginComplete'));
+      })
+      .catch((sessionError) => {
+        clearSessionState();
+        setError(errorMessage(sessionError, t));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [api, t]);
+
+  function handleLogin() {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    window.location.href = `${API_BASE_URL}/auth/github`;
   }
 
   async function handleRepositorySubmit(url: string) {
@@ -154,14 +188,18 @@ export function App() {
   }
 
   function handleLogout() {
+    clearSessionState();
+    setMessage('');
+    setError('');
+  }
+
+  function clearSessionState() {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     setAccessToken(null);
     setUser(null);
     setCurrentTask(null);
     setLedger([]);
     setRepositories([]);
-    setMessage('');
-    setError('');
   }
 
   function handleLanguageChange(nextLanguage: Language) {
@@ -260,37 +298,23 @@ function LoginPanel({
 }: {
   loading: boolean;
   t: Translator;
-  onLogin: (token: string) => void;
+  onLogin: () => void;
 }) {
-  const [token, setToken] = useState('');
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onLogin(token);
-  }
-
   return (
     <section className="login-layout">
-      <form className="login-panel" onSubmit={submit}>
+      <section className="login-panel">
         <div className="panel-heading">
-          <KeyRound size={22} />
+          <Github size={22} />
           <div>
-            <h2>{t('bindGithubToken')}</h2>
-            <p>{t('githubTokenHelp')}</p>
+            <h2>{t('continueWithGithub')}</h2>
+            <p>{t('githubOAuthHelp')}</p>
           </div>
         </div>
-        <input
-          value={token}
-          onChange={(event) => setToken(event.target.value)}
-          placeholder="ghp_..."
-          type="password"
-          autoComplete="off"
-        />
-        <button className="primary-button" disabled={loading || !token}>
+        <button className="primary-button" disabled={loading} onClick={onLogin}>
           {loading ? <Loader2 className="spin" size={18} /> : <Github size={18} />}
           {t('continue')}
         </button>
-      </form>
+      </section>
     </section>
   );
 }
@@ -591,6 +615,19 @@ function resultMessage(language: Language, result: TaskResult) {
 
 function errorMessage(error: unknown, t: Translator) {
   return error instanceof Error ? error.message : t('errorFallback');
+}
+
+function oauthErrorMessage(error: string, t: Translator) {
+  if (error === 'access_denied') {
+    return t('oauthAccessDenied');
+  }
+  if (error === 'insufficient_scope') {
+    return t('oauthInsufficientScope');
+  }
+  if (error === 'state_mismatch') {
+    return t('oauthStateMismatch');
+  }
+  return t('oauthFailed');
 }
 
 function mergeSubmittedRepository(
