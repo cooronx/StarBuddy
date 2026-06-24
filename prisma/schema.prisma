@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum GithubTokenStatus {
+enum GithubAuthorizationStatus {
   active
   invalid
   revoked
@@ -58,32 +58,46 @@ model User {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  token           GithubToken?
-  repositories    Repository[]
-  claims          TaskClaim[]
-  starActions     StarAction[]
-  creditLedger    CreditLedger[]
-  rateLimitEvents RateLimitEvent[]
+  githubAuthorization GithubAuthorization?
+  oauthLoginCodes     OauthLoginCode[]
+  repositories        Repository[]
+  claims              TaskClaim[]
+  starActions         StarAction[]
+  creditLedger        CreditLedger[]
+  rateLimitEvents     RateLimitEvent[]
 
   @@map("users")
 }
 
-model GithubToken {
-  id                  String            @id @default(uuid())
-  userId              String            @unique @map("user_id")
-  encryptedToken      String?           @map("encrypted_token")
-  tokenIv             String?           @map("token_iv")
-  tokenAuthTag        String?           @map("token_auth_tag")
-  tokenType           String            @default("classic_pat") @map("token_type")
-  permissionsSnapshot Json?             @map("permissions_snapshot")
-  status              GithubTokenStatus @default(active)
-  lastVerifiedAt      DateTime?         @map("last_verified_at")
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
+model GithubAuthorization {
+  id                   String                    @id @default(uuid())
+  userId               String                    @unique @map("user_id")
+  encryptedAccessToken String?                   @map("encrypted_access_token")
+  accessTokenIv        String?                   @map("access_token_iv")
+  accessTokenAuthTag   String?                   @map("access_token_auth_tag")
+  scopes               Json
+  status               GithubAuthorizationStatus @default(active)
+  lastVerifiedAt       DateTime?                 @map("last_verified_at")
+  createdAt            DateTime                  @default(now()) @map("created_at")
+  updatedAt            DateTime                  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("github_tokens")
+  @@map("github_authorizations")
+}
+
+model OauthLoginCode {
+  id         String    @id @default(uuid())
+  codeHash   String    @unique @map("code_hash")
+  userId     String    @map("user_id")
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("oauth_login_codes")
 }
 
 model Repository {

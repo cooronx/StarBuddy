@@ -6,8 +6,12 @@ export class AppConfigService {
   readonly host = process.env.HOST ?? '127.0.0.1';
   readonly databaseUrl = requiredEnv('DATABASE_URL');
   readonly jwtSecret = requiredEnv('JWT_SECRET');
-  readonly tokenEncryptionKey = parseEncryptionKey(
-    requiredEnv('TOKEN_ENCRYPTION_KEY'),
+  readonly githubOAuthClientId = requiredEnv('GITHUB_OAUTH_CLIENT_ID');
+  readonly githubOAuthClientSecret = requiredEnv('GITHUB_OAUTH_CLIENT_SECRET');
+  readonly githubOAuthCallbackUrl = requiredEnv('GITHUB_OAUTH_CALLBACK_URL');
+  readonly webAppUrl = requiredEnv('WEB_APP_URL');
+  readonly credentialEncryptionKey = parseEncryptionKey(
+    requiredEnv('CREDENTIAL_ENCRYPTION_KEY'),
   );
 }
 
@@ -22,7 +26,9 @@ function requiredEnv(name: string): string {
 function parseEncryptionKey(value: string): Buffer {
   const key = Buffer.from(value, 'base64');
   if (key.length !== 32) {
-    throw new Error('TOKEN_ENCRYPTION_KEY must be a base64 encoded 32-byte key');
+    throw new Error(
+      'CREDENTIAL_ENCRYPTION_KEY must be a base64 encoded 32-byte key',
+    );
   }
   return key;
 }

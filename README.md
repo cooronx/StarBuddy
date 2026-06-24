@@ -38,7 +38,7 @@ npm install
 cp .env.example .env
 ```
 
-Generate a local token encryption key:
+Generate a local credential encryption key:
 
 ```bash
 openssl rand -base64 32
@@ -49,7 +49,11 @@ Edit `.env`:
 ```env
 DATABASE_URL="postgresql://starbuddy:starbuddy123@localhost:5432/starbuddy"
 JWT_SECRET="starbuddy-local-development-secret"
-TOKEN_ENCRYPTION_KEY="paste-the-generated-base64-key-here"
+CREDENTIAL_ENCRYPTION_KEY="paste-the-generated-base64-key-here"
+GITHUB_OAUTH_CLIENT_ID="your-github-oauth-client-id"
+GITHUB_OAUTH_CLIENT_SECRET="your-github-oauth-client-secret"
+GITHUB_OAUTH_CALLBACK_URL="http://127.0.0.1:3000/auth/github/callback"
+WEB_APP_URL="http://127.0.0.1:5173"
 HOST="0.0.0.0"
 PORT=3000
 ```
@@ -112,18 +116,23 @@ If accessing from another machine:
 http://YOUR_SERVER_IP:5173
 ```
 
-## GitHub Token Permissions
+## GitHub OAuth App
 
-Use a GitHub classic personal access token.
+Create a GitHub OAuth App for local development.
 
-Required permission:
+Callback URL:
 
 ```txt
-Scopes:
-  public_repo
+http://127.0.0.1:3000/auth/github/callback
 ```
 
-Keep all unrelated scopes disabled. Fine-grained PATs cannot reliably star arbitrary public repositories because repository access is scoped.
+Requested scopes:
+
+```txt
+read:user public_repo
+```
+
+The backend stores the GitHub OAuth access token encrypted. The frontend only stores the StarBuddy JWT.
 
 ## Useful Commands
 

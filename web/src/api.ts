@@ -1,4 +1,4 @@
-const API_BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:3000';
 
 export interface AuthResponse {
@@ -12,7 +12,7 @@ export interface User {
   githubLogin: string;
   avatarUrl: string | null;
   creditsBalance: number;
-  githubTokenStatus?: string | null;
+  githubAuthorizationStatus?: string | null;
 }
 
 export interface CurrentTask {
@@ -77,10 +77,10 @@ export type TaskResult = {
 export class ApiClient {
   constructor(private readonly getAccessToken: () => string | null) {}
 
-  bindGithubToken(token: string) {
-    return this.request<AuthResponse>('/auth/github-token', {
+  createSession(code: string) {
+    return this.request<AuthResponse>('/auth/session', {
       method: 'POST',
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ code }),
     });
   }
 

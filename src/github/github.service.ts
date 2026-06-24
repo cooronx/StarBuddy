@@ -20,6 +20,12 @@ interface GithubRepositoryResponse {
   stargazers_count: number;
 }
 
+interface GithubOAuthTokenResponse {
+  access_token?: string;
+  error?: string;
+  error_description?: string;
+}
+
 export interface GithubUser {
   id: bigint;
   login: string;
@@ -35,15 +41,70 @@ export interface GithubRepository {
   isPrivate: boolean;
 }
 
+export interface GithubAuthenticatedUser {
+  user: GithubUser;
+  scopes: string[];
+}
+
 @Injectable()
 export class GithubService {
+  async exchangeOAuthCode(params: {
+    clientId: string;
+    clientSecret: string;
+    code: string;
+    redirectUri: string;
+  }): Promise<string> {
+    const response = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'StarBuddy',
+      },
+      body: JSON.stringify({
+        client_id: params.clientId,
+        client_secret: params.clientSecret,
+        code: params.code,
+        redirect_uri: params.redirectUri,
+      }),
+    });
+
+    if (!response.ok) {
+      await this.throwGithubError(response);
+    }
+
+    const body = (await response.json()) as GithubOAuthTokenResponse;
+    if (!body.access_token) {
+      throw new UnauthorizedException(
+        body.error_description ?? body.error ?? 'GitHub OAuth failed',
+      );
+    }
+
+    return body.access_token;
+  }
+
   async getAuthenticatedUser(token: string): Promise<GithubUser> {
-    const response = await this.request<GithubUserResponse>('/user', token);
+    return (await this.getAuthenticatedUserWithScopes(token)).user;
+  }
+
+  async getAuthenticatedUserWithScopes(
+    token: string,
+  ): Promise<GithubAuthenticatedUser> {
+    const response = await this.rawRequest('/user', token, 'GET');
+
+    if (!response.ok) {
+      await this.throwGithubError(response);
+    }
+
+    const user = (await response.json()) as GithubUserResponse;
 
     return {
-      id: BigInt(response.id),
-      login: response.login,
-      avatarUrl: response.avatar_url,
+      user: {
+        id: BigInt(user.id),
+        login: user.login,
+        avatarUrl: user.avatar_url,
+      },
+      scopes: parseOAuthScopes(response.headers.get('x-oauth-scopes')),
     };
   }
 
@@ -169,7 +230,7 @@ export class GithubService {
 
   private async throwGithubError(response: Response): Promise<never> {
     if (response.status === 401) {
-      throw new UnauthorizedException('GitHub token is invalid');
+      throw new UnauthorizedException('GitHub authorization is invalid');
     }
 
     const detail = await safeReadBody(response);
@@ -179,6 +240,17 @@ export class GithubService {
       detail,
     });
   }
+}
+
+function parseOAuthScopes(header: string | null): string[] {
+  if (!header) {
+    return [];
+  }
+
+  return header
+    .split(',')
+    .map((scope) => scope.trim())
+    .filter(Boolean);
 }
 
 async function safeReadBody(response: Response): Promise<unknown> {
