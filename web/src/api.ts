@@ -55,6 +55,18 @@ export interface Repository {
     id: string;
     status: string;
   } | null;
+  starBuddyStarsCount: number;
+  recentStars: RepositoryStar[];
+}
+
+export interface RepositoryStar {
+  id: string;
+  starredAt: string;
+  actor: {
+    id: string;
+    githubLogin: string;
+    avatarUrl: string | null;
+  };
 }
 
 export interface GithubRepository {

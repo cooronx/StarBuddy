@@ -22,6 +22,7 @@ type TranslationKey =
   | 'noProjectsAvailable'
   | 'noProjectsAvailableHelp'
   | 'noPublicRepositories'
+  | 'noStarBuddyStars'
   | 'oauthAccessDenied'
   | 'oauthFailed'
   | 'oauthInsufficientScope'
@@ -33,10 +34,12 @@ type TranslationKey =
   | 'refresh'
   | 'refreshingProjects'
   | 'repositoryNoCredits'
+  | 'recentStargazers'
   | 'signOut'
   | 'skip'
   | 'skippedLoading'
   | 'starCompletedRewarded'
+  | 'starBuddyStars'
   | 'starThisProject'
   | 'stars'
   | 'submit'
@@ -69,6 +72,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noProjectsAvailable: 'No projects available',
     noProjectsAvailableHelp: 'Submit your own repository or refresh after more users join.',
     noPublicRepositories: 'No public GitHub repositories found.',
+    noStarBuddyStars: 'No StarBuddy stars yet.',
     oauthAccessDenied: 'GitHub authorization was cancelled.',
     oauthFailed: 'GitHub authorization failed. Try again.',
     oauthInsufficientScope:
@@ -81,10 +85,12 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     refresh: 'Refresh',
     refreshingProjects: 'Refreshing projects...',
     repositoryNoCredits: '{repository} was starred, but the owner had no credits left.',
+    recentStargazers: 'Recent stargazers',
     signOut: 'Sign out',
     skip: 'Skip',
     skippedLoading: 'Skipped. Loading another project.',
     starCompletedRewarded: 'Starred {repository}. You earned 1 credit.',
+    starBuddyStars: '{count} StarBuddy stars',
     starThisProject: 'Star this project',
     stars: 'stars',
     submit: 'Submit',
@@ -114,6 +120,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noProjectsAvailable: '暂无可推荐项目',
     noProjectsAvailableHelp: '提交你自己的仓库，或等更多用户加入后再刷新。',
     noPublicRepositories: '没有找到公开 GitHub 仓库。',
+    noStarBuddyStars: '还没有通过 StarBuddy 收获 Star。',
     oauthAccessDenied: 'GitHub 授权已取消。',
     oauthFailed: 'GitHub 授权失败，请重试。',
     oauthInsufficientScope: 'StarBuddy 需要 read:user 和 public_repo 权限才能继续。',
@@ -125,10 +132,12 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     refresh: '刷新',
     refreshingProjects: '正在刷新项目...',
     repositoryNoCredits: '{repository} 已 Star，但仓库所有者积分不足。',
+    recentStargazers: '最近点 Star 的用户',
     signOut: '退出登录',
     skip: '跳过',
     skippedLoading: '已跳过，正在加载下一个项目。',
     starCompletedRewarded: '已 Star {repository}，你获得了 1 积分。',
+    starBuddyStars: 'StarBuddy 收获 {count} 个 Star',
     starThisProject: '给这个项目 Star',
     stars: 'stars',
     submit: '提交',

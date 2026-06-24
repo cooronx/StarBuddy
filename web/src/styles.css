@@ -456,6 +456,64 @@ input:focus {
   color: #667386;
 }
 
+.repository-star-summary {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  background: #f8fafb;
+}
+
+.star-summary-count {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #0d6b6f;
+}
+
+.star-summary-count strong {
+  color: #0d6b6f;
+  font-size: 13px;
+}
+
+.stargazer-list {
+  display: grid;
+  gap: 7px;
+}
+
+.stargazer-list > span {
+  font-size: 12px;
+}
+
+.stargazer-list > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stargazer-chip {
+  display: inline-flex;
+  min-height: 28px;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 4px;
+  border: 1px solid #d6dde6;
+  border-radius: 999px;
+  color: #223044;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.stargazer-chip img {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
 .status-pill {
   padding: 5px 8px;
   border-radius: 999px;

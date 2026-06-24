@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { StarActionStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { GithubService } from '../github/github.service';
@@ -42,7 +43,7 @@ export class RepositoriesService {
         starsCountSnapshot: githubRepo.starsCount,
         status: 'active',
       },
-      include: { starTask: true },
+      include: repositorySummaryInclude(),
     });
 
     if (repository.ownerUserId !== userId) {
@@ -55,7 +56,7 @@ export class RepositoriesService {
   async listMine(userId: string) {
     const repositories = await this.prisma.repository.findMany({
       where: { ownerUserId: userId },
-      include: { starTask: true },
+      include: repositorySummaryInclude(),
       orderBy: { createdAt: 'desc' },
     });
 
@@ -68,7 +69,7 @@ export class RepositoriesService {
       this.github.listPublicRepositories(githubLogin, token),
       this.prisma.repository.findMany({
         where: { ownerUserId: userId },
-        include: { starTask: true },
+        include: repositorySummaryInclude(),
       }),
     ]);
 
@@ -99,6 +100,18 @@ function serializeRepository(repository: {
   starsCountSnapshot: number;
   status: string;
   starTask?: { id: string; status: string } | null;
+  starActions?: {
+    id: string;
+    createdAt: Date;
+    actor: {
+      id: string;
+      githubLogin: string;
+      avatarUrl: string | null;
+    };
+  }[];
+  _count?: {
+    starActions: number;
+  };
 }) {
   return {
     id: repository.id,
@@ -114,5 +127,43 @@ function serializeRepository(repository: {
           status: repository.starTask.status,
         }
       : null,
+    starBuddyStarsCount: repository._count?.starActions ?? 0,
+    recentStars:
+      repository.starActions?.map((action) => ({
+        id: action.id,
+        starredAt: action.createdAt,
+        actor: {
+          id: action.actor.id,
+          githubLogin: action.actor.githubLogin,
+          avatarUrl: action.actor.avatarUrl,
+        },
+      })) ?? [],
+  };
+}
+
+function repositorySummaryInclude() {
+  return {
+    starTask: true,
+    starActions: {
+      where: { status: StarActionStatus.completed_rewarded },
+      include: {
+        actor: {
+          select: {
+            id: true,
+            githubLogin: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' as const },
+      take: 10,
+    },
+    _count: {
+      select: {
+        starActions: {
+          where: { status: StarActionStatus.completed_rewarded },
+        },
+      },
+    },
   };
 }
