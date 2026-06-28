@@ -402,38 +402,71 @@ function RepositoryList({
                 <span>{t('refreshingProjects')}</span>
               </div>
             ) : null}
-            {repositories.map((repository) => (
-              <div className="repository-row" key={repository.githubRepoId}>
-                <div>
-                  <strong>
-                    {repository.githubOwner}/{repository.githubRepo}
-                  </strong>
-                  <span>
-                    {repository.submittedRepository?.starTask?.status
-                      ? formatStatus(language, repository.submittedRepository.starTask.status)
-                      : repository.submittedRepository?.status
-                        ? formatStatus(language, repository.submittedRepository.status)
-                        : `${repository.starsCountSnapshot} ${t('stars')}`}
-                  </span>
+            {repositories.map((repository) => {
+              const submitted = repository.submittedRepository;
+
+              return (
+                <div className="repository-row" key={repository.githubRepoId}>
+                  <div>
+                    <strong>
+                      {repository.githubOwner}/{repository.githubRepo}
+                    </strong>
+                    <span>
+                      {submitted?.starTask?.status
+                        ? formatStatus(language, submitted.starTask.status)
+                        : submitted?.status
+                          ? formatStatus(language, submitted.status)
+                          : `${repository.starsCountSnapshot} ${t('stars')}`}
+                    </span>
+                  </div>
+                  {submitted ? (
+                    <span className="status-pill">{t('submitted')}</span>
+                  ) : (
+                    <button
+                      className="inline-button"
+                      disabled={loading}
+                      onClick={() =>
+                        onSubmit(
+                          `https://github.com/${repository.githubOwner}/${repository.githubRepo}`,
+                        )
+                      }
+                    >
+                      <Plus size={15} />
+                      {t('submit')}
+                    </button>
+                  )}
+                  {submitted ? (
+                    <div className="repository-star-summary">
+                      <div className="star-summary-count">
+                        <Star size={15} />
+                        <strong>
+                          {t('starBuddyStars', {
+                            count: submitted.starBuddyStarsCount,
+                          })}
+                        </strong>
+                      </div>
+                      {submitted.recentStars.length > 0 ? (
+                        <div className="stargazer-list">
+                          <span>{t('recentStargazers')}</span>
+                          <div>
+                            {submitted.recentStars.map((star) => (
+                              <span className="stargazer-chip" key={star.id}>
+                                {star.actor.avatarUrl ? (
+                                  <img src={star.actor.avatarUrl} alt="" />
+                                ) : null}
+                                {star.actor.githubLogin}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="muted">{t('noStarBuddyStars')}</span>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
-                {repository.submittedRepository ? (
-                  <span className="status-pill">{t('submitted')}</span>
-                ) : (
-                  <button
-                    className="inline-button"
-                    disabled={loading}
-                    onClick={() =>
-                      onSubmit(
-                        `https://github.com/${repository.githubOwner}/${repository.githubRepo}`,
-                      )
-                    }
-                  >
-                    <Plus size={15} />
-                    {t('submit')}
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </>
         )}
       </div>
