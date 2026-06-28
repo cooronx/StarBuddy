@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   Post,
   Query,
   Req,
@@ -45,6 +46,8 @@ interface OAuthResponse {
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly config: AppConfigService,
@@ -94,6 +97,7 @@ export class AuthController {
       const session = await this.authService.handleGithubOAuthCallback(code);
       return response.redirect(this.webCallbackUrl(undefined, session.loginCode));
     } catch (callbackError) {
+      this.logger.error('GitHub OAuth callback failed', callbackError);
       const errorCode =
         callbackError instanceof BadRequestException
           ? 'insufficient_scope'
