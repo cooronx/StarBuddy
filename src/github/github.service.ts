@@ -1,8 +1,12 @@
 import {
   BadGatewayException,
+  GatewayTimeoutException,
+  HttpException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { AppConfigService } from '../config/app-config.service';
 
 interface GithubUserResponse {
   id: number;
@@ -48,26 +52,31 @@ export interface GithubAuthenticatedUser {
 
 @Injectable()
 export class GithubService {
+  constructor(private readonly config: AppConfigService) {}
+
   async exchangeOAuthCode(params: {
     clientId: string;
     clientSecret: string;
     code: string;
     redirectUri: string;
   }): Promise<string> {
-    const response = await fetch('https://github.com/login/oauth/access_token', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'StarBuddy',
+    const response = await this.fetchWithTimeout(
+      'https://github.com/login/oauth/access_token',
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'StarBuddy',
+        },
+        body: JSON.stringify({
+          client_id: params.clientId,
+          client_secret: params.clientSecret,
+          code: params.code,
+          redirect_uri: params.redirectUri,
+        }),
       },
-      body: JSON.stringify({
-        client_id: params.clientId,
-        client_secret: params.clientSecret,
-        code: params.code,
-        redirect_uri: params.redirectUri,
-      }),
-    });
+    );
 
     if (!response.ok) {
       await this.throwGithubError(response);
@@ -225,12 +234,47 @@ export class GithubService {
       headers['Content-Length'] = '0';
     }
 
-    return fetch(`https://api.github.com${path}`, { method, headers });
+    return this.fetchWithTimeout(`https://api.github.com${path}`, {
+      method,
+      headers,
+    });
+  }
+
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      this.config.githubRequestTimeoutMs,
+    );
+
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new GatewayTimeoutException('GitHub request timed out');
+      }
+      throw new BadGatewayException('GitHub request failed');
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private async throwGithubError(response: Response): Promise<never> {
     if (response.status === 401) {
       throw new UnauthorizedException('GitHub authorization is invalid');
+    }
+
+    if (response.status === 429 || isGithubRateLimited(response)) {
+      throw new HttpException(
+        'GitHub rate limit reached',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const detail = await safeReadBody(response);
@@ -240,6 +284,17 @@ export class GithubService {
       detail,
     });
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function isGithubRateLimited(response: Response): boolean {
+  return (
+    response.status === 403 &&
+    response.headers.get('x-ratelimit-remaining') === '0'
+  );
 }
 
 function parseOAuthScopes(header: string | null): string[] {

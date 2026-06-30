@@ -4,9 +4,16 @@ export const LANGUAGE_STORAGE_KEY = 'starbuddy_language';
 
 type TranslationKey =
   | 'addRepository'
+  | 'admin'
+  | 'adminCleanup'
+  | 'adminCleanupComplete'
+  | 'adminReports'
+  | 'adminSystem'
   | 'alreadyStarredNoReward'
   | 'activatePromotion'
   | 'activePromotion'
+  | 'archiveRepository'
+  | 'dailyLimitReached'
   | 'claimExpires'
   | 'continue'
   | 'continueWithGithub'
@@ -15,6 +22,8 @@ type TranslationKey =
   | 'descriptionFallback'
   | 'errorFallback'
   | 'githubOAuthHelp'
+  | 'introCopy'
+  | 'introHeadline'
   | 'languageEnglish'
   | 'languageChinese'
   | 'loadRecommendation'
@@ -25,6 +34,7 @@ type TranslationKey =
   | 'noProjectsAvailable'
   | 'noProjectsAvailableHelp'
   | 'noPublicRepositories'
+  | 'noReports'
   | 'noStarBuddyStars'
   | 'oauthAccessDenied'
   | 'oauthFailed'
@@ -32,6 +42,9 @@ type TranslationKey =
   | 'oauthStateMismatch'
   | 'pausePromotion'
   | 'pausedPromotion'
+  | 'permissionProfile'
+  | 'permissionRepositories'
+  | 'permissionStar'
   | 'promotionActivated'
   | 'promotionPaused'
   | 'promotionResumed'
@@ -39,14 +52,19 @@ type TranslationKey =
   | 'projectQueueReady'
   | 'projectQueueReadyHelp'
   | 'recommendedProject'
+  | 'rejectRepository'
+  | 'reportProject'
+  | 'repositoryReported'
   | 'refresh'
   | 'refreshingProjects'
   | 'repositoryNoCredits'
+  | 'restoreRepository'
   | 'recentStargazers'
   | 'resumePromotion'
   | 'signOut'
   | 'skip'
   | 'skippedLoading'
+  | 'suspendReporter'
   | 'starCompletedRewarded'
   | 'starBuddyStars'
   | 'starThisProject'
@@ -56,6 +74,8 @@ type TranslationKey =
   | 'submittedCount'
   | 'switchResetCountdown'
   | 'tagline'
+  | 'tasksDisabled'
+  | 'userSuspended'
   | 'yourProjects';
 
 type TemplateValues = Record<string, string | number>;
@@ -63,9 +83,17 @@ type TemplateValues = Record<string, string | number>;
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
     addRepository: 'Add your repository',
+    admin: 'Admin',
+    adminCleanup: 'Run cleanup',
+    adminCleanupComplete:
+      'Cleanup removed {oauthLoginCodes} login codes, {rateLimitEvents} rate-limit events, {taskClaims} claims, and {repositoryReports} reports.',
+    adminReports: 'Reports',
+    adminSystem: 'System',
     alreadyStarredNoReward: '{repository} was already starred. No credits changed.',
     activatePromotion: 'Set active',
     activePromotion: '推广中',
+    archiveRepository: 'Archive',
+    dailyLimitReached: 'Daily limit reached. Try again after the next server-local day starts.',
     claimExpires: 'claim expires',
     continue: 'Continue',
     continueWithGithub: 'Continue with GitHub',
@@ -75,6 +103,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     errorFallback: 'Something went wrong',
     githubOAuthHelp:
       'Authorize StarBuddy to read your GitHub profile and star public repositories when you run tasks.',
+    introCopy:
+      'Join with GitHub, submit one active public repository, and review other open source projects to earn credits.',
+    introHeadline: 'Open source discovery with a fair credit queue.',
     languageEnglish: 'EN',
     languageChinese: '中文',
     loadRecommendation: 'Load recommendation',
@@ -85,6 +116,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noProjectsAvailable: 'No projects available',
     noProjectsAvailableHelp: 'Submit your own repository or refresh after more users join.',
     noPublicRepositories: 'No public GitHub repositories found.',
+    noReports: 'No reports yet.',
     noStarBuddyStars: 'No StarBuddy stars yet.',
     oauthAccessDenied: 'GitHub authorization was cancelled.',
     oauthFailed: 'GitHub authorization failed. Try again.',
@@ -93,6 +125,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     oauthStateMismatch: 'Authorization session expired. Try again.',
     pausePromotion: 'Pause',
     pausedPromotion: '已暂停',
+    permissionProfile: 'Read your GitHub profile',
+    permissionRepositories: 'Read your public repositories',
+    permissionStar: 'Star public repositories when you run a task',
     promotionActivated: '{repository} is now active.',
     promotionPaused: '{repository} paused.',
     promotionResumed: '{repository} resumed.',
@@ -100,14 +135,19 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     projectQueueReady: 'Your project queue is ready.',
     projectQueueReadyHelp: 'Load the first recommendation and decide whether to star it.',
     recommendedProject: 'Recommended project',
+    rejectRepository: 'Reject',
+    reportProject: 'Report',
+    repositoryReported: 'Report submitted.',
     refresh: 'Refresh',
     refreshingProjects: 'Refreshing projects...',
     repositoryNoCredits: '{repository} was starred, but the owner had no credits left.',
+    restoreRepository: 'Restore',
     recentStargazers: 'Recent stargazers',
     resumePromotion: 'Resume',
     signOut: 'Sign out',
     skip: 'Skip',
     skippedLoading: 'Skipped. Loading another project.',
+    suspendReporter: 'Suspend reporter',
     starCompletedRewarded: 'Starred {repository}. You earned 1 credit.',
     starBuddyStars: '{count} StarBuddy stars',
     starThisProject: 'Star this project',
@@ -117,13 +157,23 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     submittedCount: '{submitted}/{total} submitted to StarBuddy.',
     switchResetCountdown: 'Switch available in {time}.',
     tagline: 'Discover projects, star deliberately, earn credits.',
+    tasksDisabled: 'Star tasks are temporarily disabled.',
+    userSuspended: 'This account is suspended.',
     yourProjects: 'Your projects',
   },
   zh: {
     addRepository: '添加你的仓库',
+    admin: '管理',
+    adminCleanup: '执行清理',
+    adminCleanupComplete:
+      '已清理 {oauthLoginCodes} 条登录码、{rateLimitEvents} 条限流记录、{taskClaims} 条任务记录、{repositoryReports} 条举报记录。',
+    adminReports: '举报',
+    adminSystem: '系统状态',
     alreadyStarredNoReward: '{repository} 已经 Star 过，积分未变化。',
     activatePromotion: '设为 Active',
     activePromotion: 'Active',
+    archiveRepository: '归档',
+    dailyLimitReached: '今日上限已达到，请等服务器本地自然日刷新后再试。',
     claimExpires: '任务过期时间',
     continue: '继续',
     continueWithGithub: '使用 GitHub 继续',
@@ -133,6 +183,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     errorFallback: '出错了',
     githubOAuthHelp:
       '授权 StarBuddy 读取你的 GitHub 资料，并在你执行任务时为公开仓库 Star。',
+    introCopy:
+      '使用 GitHub 加入，提交一个 active 公开仓库，然后通过认真查看其他开源项目来赚取积分。',
+    introHeadline: '带公平积分队列的开源项目发现工具。',
     languageEnglish: 'EN',
     languageChinese: '中文',
     loadRecommendation: '加载推荐项目',
@@ -143,6 +196,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     noProjectsAvailable: '暂无可推荐项目',
     noProjectsAvailableHelp: '提交你自己的仓库，或等更多用户加入后再刷新。',
     noPublicRepositories: '没有找到公开 GitHub 仓库。',
+    noReports: '暂无举报。',
     noStarBuddyStars: '还没有通过 StarBuddy 收获 Star。',
     oauthAccessDenied: 'GitHub 授权已取消。',
     oauthFailed: 'GitHub 授权失败，请重试。',
@@ -150,6 +204,9 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     oauthStateMismatch: '授权会话已过期，请重试。',
     pausePromotion: '暂停',
     pausedPromotion: 'Paused',
+    permissionProfile: '读取你的 GitHub 资料',
+    permissionRepositories: '读取你的公开仓库',
+    permissionStar: '在你执行任务时为公开仓库 Star',
     promotionActivated: '{repository} 已设为 Active。',
     promotionPaused: '{repository} 已暂停。',
     promotionResumed: '{repository} 已恢复。',
@@ -157,14 +214,19 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     projectQueueReady: '你的项目队列已就绪。',
     projectQueueReadyHelp: '加载第一个推荐项目，然后决定是否 Star。',
     recommendedProject: '推荐项目',
+    rejectRepository: '拒绝',
+    reportProject: '举报',
+    repositoryReported: '已提交举报。',
     refresh: '刷新',
     refreshingProjects: '正在刷新项目...',
     repositoryNoCredits: '{repository} 已 Star，但仓库所有者积分不足。',
+    restoreRepository: '恢复',
     recentStargazers: '最近点 Star 的用户',
     resumePromotion: '恢复',
     signOut: '退出登录',
     skip: '跳过',
     skippedLoading: '已跳过，正在加载下一个项目。',
+    suspendReporter: '暂停举报者账号',
     starCompletedRewarded: '已 Star {repository}，你获得了 1 积分。',
     starBuddyStars: 'StarBuddy 收获 {count} 个 Star',
     starThisProject: '给这个项目 Star',
@@ -174,6 +236,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     submittedCount: '{submitted}/{total} 个已提交到 StarBuddy。',
     switchResetCountdown: '{time} 后可再次切换。',
     tagline: '发现项目，认真 Star，赚取积分。',
+    tasksDisabled: 'Star 任务暂时关闭。',
+    userSuspended: '这个账号已暂停。',
     yourProjects: '你的项目',
   },
 };
@@ -193,10 +257,17 @@ const statusLabels: Record<Language, Record<string, string>> = {
     completed_no_reward: 'Completed, no reward',
     failed: 'Failed',
     cancelled_insufficient_credits: 'Cancelled: insufficient credits',
+    cancelled_daily_limit: 'Cancelled: daily limit reached',
+    cancelled_repository_unavailable: 'Cancelled: repository unavailable',
     skipped: 'Skipped',
     expired: 'Expired',
     already_starred_no_reward: 'Already starred',
+    already_completed: 'Already completed',
     completed_unrewarded_insufficient_credits: 'Completed, owner out of credits',
+    tasks_disabled: 'Tasks disabled',
+    account_suspended: 'Account suspended',
+    daily_user_limit_reached: 'Daily user limit reached',
+    daily_repository_limit_reached: 'Daily repository limit reached',
   },
   zh: {
     active: '进行中',
@@ -212,10 +283,17 @@ const statusLabels: Record<Language, Record<string, string>> = {
     completed_no_reward: '已完成，无奖励',
     failed: '失败',
     cancelled_insufficient_credits: '已取消：积分不足',
+    cancelled_daily_limit: '已取消：达到今日上限',
+    cancelled_repository_unavailable: '已取消：仓库不可用',
     skipped: '已跳过',
     expired: '已过期',
     already_starred_no_reward: '已 Star',
+    already_completed: '已结算',
     completed_unrewarded_insufficient_credits: '已完成，所有者积分不足',
+    tasks_disabled: '任务已关闭',
+    account_suspended: '账号已暂停',
+    daily_user_limit_reached: '用户今日上限已达到',
+    daily_repository_limit_reached: '仓库今日上限已达到',
   },
 };
 

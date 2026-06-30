@@ -1,9 +1,20 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, RepositoryStatus, StarActionStatus } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  Prisma,
+  RepositoryReportStatus,
+  RepositoryStatus,
+  StarActionStatus,
+} from '@prisma/client';
+import { AppConfigService } from '../config/app-config.service';
 import { PrismaService } from '../database/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { GithubService } from '../github/github.service';
-import { parseGithubRepositoryUrl } from './repository-url';
 
 const OCCUPIED_PROMOTION_STATUSES = [
   RepositoryStatus.active,
@@ -16,12 +27,29 @@ export class RepositoriesService {
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
     private readonly github: GithubService,
+    private readonly config: AppConfigService,
   ) {}
 
-  async create(userId: string, url: string) {
-    const { owner, repo } = parseGithubRepositoryUrl(url);
+  async createFromGithubRepository(
+    userId: string,
+    githubLogin: string,
+    githubRepoId: string,
+  ) {
+    this.assertRepositoryPromotionEnabled();
+    await this.authService.assertUserActive(userId);
+
     const token = await this.authService.getActiveGithubAccessToken(userId);
-    const githubRepo = await this.github.getRepository(owner, repo, token);
+    const repositories = await this.withGithubAuthorizationInvalidation(
+      userId,
+      () => this.github.listPublicRepositories(githubLogin, token),
+    );
+    const githubRepo = repositories.find(
+      (repository) => repository.id.toString() === githubRepoId,
+    );
+
+    if (!githubRepo) {
+      throw new NotFoundException('GitHub repository not found');
+    }
 
     if (githubRepo.isPrivate) {
       throw new BadRequestException('Only public repositories are supported');
@@ -93,7 +121,9 @@ export class RepositoriesService {
   async listGithubMine(userId: string, githubLogin: string) {
     const token = await this.authService.getActiveGithubAccessToken(userId);
     const [githubRepositories, submittedRepositories, user] = await Promise.all([
-      this.github.listPublicRepositories(githubLogin, token),
+      this.withGithubAuthorizationInvalidation(userId, () =>
+        this.github.listPublicRepositories(githubLogin, token),
+      ),
       this.prisma.repository.findMany({
         where: { ownerUserId: userId },
         include: repositorySummaryInclude(),
@@ -126,6 +156,9 @@ export class RepositoriesService {
   }
 
   async activate(userId: string, repositoryId: string) {
+    this.assertRepositoryPromotionEnabled();
+    await this.authService.assertUserActive(userId);
+
     const repository = await this.prisma.$transaction(async (tx) => {
       const target = await this.findUserRepositoryOrThrow(
         tx,
@@ -194,6 +227,8 @@ export class RepositoriesService {
   }
 
   async pause(userId: string, repositoryId: string) {
+    await this.authService.assertUserActive(userId);
+
     const repository = await this.prisma.$transaction(async (tx) => {
       const target = await this.findUserRepositoryOrThrow(
         tx,
@@ -220,6 +255,9 @@ export class RepositoriesService {
   }
 
   async resume(userId: string, repositoryId: string) {
+    this.assertRepositoryPromotionEnabled();
+    await this.authService.assertUserActive(userId);
+
     const repository = await this.prisma.$transaction(async (tx) => {
       const target = await this.findUserRepositoryOrThrow(
         tx,
@@ -243,6 +281,70 @@ export class RepositoriesService {
     });
 
     return serializeRepository(repository);
+  }
+
+  async report(userId: string, repositoryId: string, reason?: string) {
+    await this.authService.assertUserActive(userId);
+
+    const repository = await this.prisma.repository.findUnique({
+      where: { id: repositoryId },
+      select: { id: true, ownerUserId: true },
+    });
+
+    if (!repository) {
+      throw new NotFoundException('Repository not found');
+    }
+
+    if (repository.ownerUserId === userId) {
+      throw new BadRequestException('Cannot report your own repository');
+    }
+
+    const report = await this.prisma.repositoryReport.upsert({
+      where: {
+        repositoryId_reporterUserId: {
+          repositoryId,
+          reporterUserId: userId,
+        },
+      },
+      create: {
+        repositoryId,
+        reporterUserId: userId,
+        reason: normalizeReportReason(reason),
+      },
+      update: {
+        reason: normalizeReportReason(reason),
+        status: RepositoryReportStatus.open,
+        reviewedAt: null,
+      },
+    });
+
+    return {
+      id: report.id,
+      status: report.status,
+      repositoryId: report.repositoryId,
+    };
+  }
+
+  private assertRepositoryPromotionEnabled() {
+    if (!this.config.repositoryPromotionEnabled) {
+      throw new ServiceUnavailableException(
+        'Repository promotion is temporarily disabled',
+      );
+    }
+  }
+
+  private async withGithubAuthorizationInvalidation<T>(
+    userId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        await this.authService.markGithubAuthorizationInvalid(userId);
+      }
+      throw error;
+    }
   }
 
   private findOccupiedPromotionSlot(
@@ -397,4 +499,9 @@ function nextServerLocalMidnight(now: Date) {
     0,
     0,
   );
+}
+
+function normalizeReportReason(reason: string | undefined): string | undefined {
+  const normalized = reason?.trim();
+  return normalized ? normalized.slice(0, 500) : undefined;
 }

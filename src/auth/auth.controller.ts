@@ -13,6 +13,8 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { AppConfigService } from '../config/app-config.service';
+import { readRequestIp, RequestWithIp } from '../http/request-ip';
+import { RateLimitService } from '../rate-limit/rate-limit.service';
 import { CurrentUser } from './current-user.decorator';
 import { OAuthSessionDto } from './dto/oauth-session.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -22,8 +24,8 @@ import { AuthService } from './auth.service';
 const STATE_COOKIE_NAME = 'github_oauth_state';
 const STATE_COOKIE_MAX_AGE_MS = 10 * 60 * 1000;
 
-interface OAuthRequest {
-  headers: {
+interface OAuthRequest extends RequestWithIp {
+  headers: RequestWithIp['headers'] & {
     cookie?: string;
   };
 }
@@ -51,10 +53,21 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: AppConfigService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   @Get('github')
-  startGithubOAuth(@Res() response: OAuthResponse) {
+  async startGithubOAuth(
+    @Req() request: OAuthRequest,
+    @Res() response: OAuthResponse,
+  ) {
+    await this.rateLimit.consume({
+      eventType: 'oauth_start',
+      ipAddress: readRequestIp(request),
+      maxEvents: 20,
+      windowMs: 10 * 60 * 1000,
+    });
+
     const state = randomBytes(24).toString('base64url');
     response.cookie(STATE_COOKIE_NAME, state, {
       httpOnly: true,

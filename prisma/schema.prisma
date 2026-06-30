@@ -13,6 +13,11 @@ enum GithubAuthorizationStatus {
   revoked
 }
 
+enum UserStatus {
+  active
+  suspended
+}
+
 enum RepositoryStatus {
   active
   inactive
@@ -34,6 +39,8 @@ enum TaskClaimStatus {
   completed_no_reward
   failed
   cancelled_insufficient_credits
+  cancelled_daily_limit
+  cancelled_repository_unavailable
   skipped
   expired
 }
@@ -51,15 +58,22 @@ enum CreditReason {
   repository_star_spend
 }
 
+enum RepositoryReportStatus {
+  open
+  resolved
+  dismissed
+}
+
 model User {
-  id                    String    @id @default(uuid())
-  githubUserId          BigInt    @unique @map("github_user_id")
-  githubLogin           String    @map("github_login")
-  avatarUrl             String?   @map("avatar_url")
-  creditsBalance        Int       @default(0) @map("credits_balance")
-  lastPromotionSwitchAt DateTime? @map("last_promotion_switch_at")
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  id                    String     @id @default(uuid())
+  githubUserId          BigInt     @unique @map("github_user_id")
+  githubLogin           String     @map("github_login")
+  avatarUrl             String?    @map("avatar_url")
+  status                UserStatus @default(active)
+  creditsBalance        Int        @default(0) @map("credits_balance")
+  lastPromotionSwitchAt DateTime?  @map("last_promotion_switch_at")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
 
   githubAuthorization GithubAuthorization?
   oauthLoginCodes     OauthLoginCode[]
@@ -68,6 +82,7 @@ model User {
   starActions         StarAction[]
   creditLedger        CreditLedger[]
   rateLimitEvents     RateLimitEvent[]
+  repositoryReports   RepositoryReport[]
 
   @@map("users")
 }
@@ -115,12 +130,14 @@ model Repository {
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
 
-  owner       User         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  owner       User               @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   starTask    StarTask?
   claims      TaskClaim[]
   starActions StarAction[]
+  reports     RepositoryReport[]
 
   @@unique([githubOwner, githubRepo])
+  @@index([status, ownerUserId])
   @@map("repositories")
 }
 
@@ -137,6 +154,7 @@ model StarTask {
   claims      TaskClaim[]
   starActions StarAction[]
 
+  @@index([status, createdAt])
   @@map("star_tasks")
 }
 
@@ -156,6 +174,7 @@ model TaskClaim {
 
   @@index([userId, status])
   @@index([taskId, status])
+  @@index([userId, repositoryId, status, expiresAt])
   @@map("task_claims")
 }
 
@@ -175,6 +194,8 @@ model StarAction {
   actor      User       @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
 
   @@unique([actorUserId, repositoryId])
+  @@index([repositoryId, status, createdAt])
+  @@index([actorUserId, status, createdAt])
   @@map("star_actions")
 }
 
@@ -204,5 +225,24 @@ model RateLimitEvent {
 
   @@index([userId, eventType, createdAt])
   @@index([ipAddress, eventType, createdAt])
+  @@index([eventType, createdAt])
   @@map("rate_limit_events")
+}
+
+model RepositoryReport {
+  id             String                 @id @default(uuid())
+  repositoryId   String                 @map("repository_id")
+  reporterUserId String                 @map("reporter_user_id")
+  reason         String?
+  status         RepositoryReportStatus @default(open)
+  createdAt      DateTime               @default(now()) @map("created_at")
+  reviewedAt     DateTime?              @map("reviewed_at")
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  reporter   User       @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, reporterUserId])
+  @@index([status, createdAt])
+  @@index([repositoryId, status])
+  @@map("repository_reports")
 }

@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { CreditReason } from '@prisma/client';
+import { CreditReason, UserStatus } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import { AppConfigService } from '../config/app-config.service';
 import { CredentialCryptoService } from '../credential-crypto/credential-crypto.service';
@@ -177,7 +182,21 @@ export class AuthService {
     return {
       ...serializeUser(user),
       githubAuthorizationStatus: user.githubAuthorization?.status ?? null,
+      isAdmin: this.config.adminGithubLogins.includes(
+        user.githubLogin.toLowerCase(),
+      ),
     };
+  }
+
+  async assertUserActive(userId: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { status: true },
+    });
+
+    if (user.status === UserStatus.suspended) {
+      throw new ForbiddenException('Account is suspended');
+    }
   }
 
   async revokeGithubAuthorization(userId: string) {
@@ -192,6 +211,13 @@ export class AuthService {
     });
 
     return { status: 'revoked' };
+  }
+
+  async markGithubAuthorizationInvalid(userId: string) {
+    await this.prisma.githubAuthorization.updateMany({
+      where: { userId, status: 'active' },
+      data: { status: 'invalid' },
+    });
   }
 
   async getActiveGithubAccessToken(userId: string): Promise<string> {
@@ -248,6 +274,7 @@ function serializeUser(user: {
   githubUserId: bigint;
   githubLogin: string;
   avatarUrl: string | null;
+  status: UserStatus;
   creditsBalance: number;
 }) {
   return {
@@ -255,6 +282,7 @@ function serializeUser(user: {
     githubUserId: user.githubUserId.toString(),
     githubLogin: user.githubLogin,
     avatarUrl: user.avatarUrl,
+    status: user.status,
     creditsBalance: user.creditsBalance,
   };
 }

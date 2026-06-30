@@ -1,18 +1,24 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  Archive,
+  Ban,
+  Flag,
   Github,
   Loader2,
   Pause,
   Play,
   Plus,
   RefreshCw,
-  Send,
+  RotateCcw,
+  Shield,
   Star,
+  Trash2,
   WalletCards,
   X,
 } from 'lucide-react';
 import {
+  AdminSystemStatus,
   API_BASE_URL,
   ApiClient,
   CreditLedgerEntry,
@@ -20,6 +26,7 @@ import {
   EmptyTask,
   GithubRepository,
   PromotionSwitchStatus,
+  RepositoryReport,
   TaskResult,
   User,
 } from './api';
@@ -47,6 +54,8 @@ export function App() {
   const [repositories, setRepositories] = useState<GithubRepository[]>([]);
   const [promotionSwitch, setPromotionSwitch] =
     useState<PromotionSwitchStatus | null>(null);
+  const [adminSystem, setAdminSystem] = useState<AdminSystemStatus | null>(null);
+  const [adminReports, setAdminReports] = useState<RepositoryReport[]>([]);
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -78,6 +87,18 @@ export function App() {
       setLedger(history);
       setRepositories(mine.repositories);
       setPromotionSwitch(mine.promotionSwitch);
+
+      if (me.isAdmin) {
+        const [system, reports] = await Promise.all([
+          api.getAdminSystem(),
+          api.listAdminReports(),
+        ]);
+        setAdminSystem(system);
+        setAdminReports(reports);
+      } else {
+        setAdminSystem(null);
+        setAdminReports([]);
+      }
     } catch (refreshError) {
       setError(
         errorMessage(refreshError, (key) => translate(getInitialLanguage(), key)),
@@ -142,12 +163,12 @@ export function App() {
     window.location.href = `${API_BASE_URL}/auth/github`;
   }
 
-  async function handleRepositorySubmit(url: string) {
+  async function handleRepositorySubmit(githubRepoId: string) {
     setLoading(true);
     setError('');
     setMessage('');
     try {
-      const repository = await api.createRepository(url);
+      const repository = await api.createRepositoryFromGithub(githubRepoId);
       setMessage(
         t('projectAdded', {
           repository: `${repository.githubOwner}/${repository.githubRepo}`,
@@ -249,6 +270,85 @@ export function App() {
     }
   }
 
+  async function handleReportRepository(repositoryId: string) {
+    const reason = window.prompt(t('reportProject'));
+    if (reason === null) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      await api.reportRepository(repositoryId, reason);
+      setMessage(t('repositoryReported'));
+      await refresh();
+    } catch (reportError) {
+      setError(errorMessage(reportError, t));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAdminRepositoryAction(
+    repositoryId: string,
+    action: 'archive' | 'reject' | 'restore',
+  ) {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      if (action === 'archive') {
+        await api.adminArchiveRepository(repositoryId);
+      } else if (action === 'reject') {
+        await api.adminRejectRepository(repositoryId);
+      } else {
+        await api.adminRestoreRepository(repositoryId);
+      }
+      await refresh();
+    } catch (adminError) {
+      setError(errorMessage(adminError, t));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSuspendUser(userId: string) {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      await api.adminSuspendUser(userId);
+      await refresh();
+    } catch (adminError) {
+      setError(errorMessage(adminError, t));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAdminCleanup() {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const result = await api.adminCleanup();
+      setMessage(
+        t('adminCleanupComplete', {
+          oauthLoginCodes: result.oauthLoginCodes,
+          rateLimitEvents: result.rateLimitEvents,
+          taskClaims: result.taskClaims,
+          repositoryReports: result.repositoryReports,
+        }),
+      );
+      await refresh();
+    } catch (adminError) {
+      setError(errorMessage(adminError, t));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleLogout() {
     clearSessionState();
     setMessage('');
@@ -263,6 +363,8 @@ export function App() {
     setLedger([]);
     setRepositories([]);
     setPromotionSwitch(null);
+    setAdminSystem(null);
+    setAdminReports([]);
   }
 
   function handleLanguageChange(nextLanguage: Language) {
@@ -334,7 +436,6 @@ export function App() {
               onResume={handleResumeRepository}
               onSubmit={handleRepositorySubmit}
             />
-            <RepositoryForm loading={loading} t={t} onSubmit={handleRepositorySubmit} />
           </aside>
 
           <section className="main-panel">
@@ -344,6 +445,7 @@ export function App() {
               loading={loading}
               t={t}
               onInitialLoad={refresh}
+              onReport={handleReportRepository}
               onStar={handleStar}
               onSkip={handleSkip}
             />
@@ -351,6 +453,18 @@ export function App() {
 
           <aside className="side-panel">
             <CreditPanel language={language} user={user} ledger={ledger} t={t} />
+            {user?.isAdmin ? (
+              <AdminPanel
+                language={language}
+                loading={loading}
+                reports={adminReports}
+                system={adminSystem}
+                t={t}
+                onCleanup={handleAdminCleanup}
+                onRepositoryAction={handleAdminRepositoryAction}
+                onSuspendUser={handleSuspendUser}
+              />
+            ) : null}
           </aside>
         </section>
       )}
@@ -368,7 +482,17 @@ function LoginPanel({
   onLogin: () => void;
 }) {
   return (
-    <section className="login-layout">
+    <section className="login-layout onboarding-layout">
+      <section className="onboarding-copy">
+        <span className="eyebrow">StarBuddy</span>
+        <h2>{t('introHeadline')}</h2>
+        <p>{t('introCopy')}</p>
+        <div className="permission-list">
+          <span>{t('permissionProfile')}</span>
+          <span>{t('permissionRepositories')}</span>
+          <span>{t('permissionStar')}</span>
+        </div>
+      </section>
       <section className="login-panel">
         <div className="panel-heading">
           <Github size={22} />
@@ -383,42 +507,6 @@ function LoginPanel({
         </button>
       </section>
     </section>
-  );
-}
-
-function RepositoryForm({
-  loading,
-  t,
-  onSubmit,
-}: {
-  loading: boolean;
-  t: Translator;
-  onSubmit: (url: string) => void;
-}) {
-  const [url, setUrl] = useState('');
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSubmit(url);
-    setUrl('');
-  }
-
-  return (
-    <form className="tool-panel" onSubmit={submit}>
-      <div className="panel-title">
-        <Plus size={18} />
-        <h2>{t('addRepository')}</h2>
-      </div>
-      <input
-        value={url}
-        onChange={(event) => setUrl(event.target.value)}
-        placeholder="https://github.com/owner/repo"
-      />
-      <button className="secondary-button" disabled={loading || !url}>
-        <Send size={17} />
-        {t('submit')}
-      </button>
-    </form>
   );
 }
 
@@ -441,7 +529,7 @@ function RepositoryList({
   onActivate: (repositoryId: string) => void;
   onPause: (repositoryId: string) => void;
   onResume: (repositoryId: string) => void;
-  onSubmit: (url: string) => void;
+  onSubmit: (githubRepoId: string) => void;
 }) {
   const submittedCount = repositories.filter(
     (repository) => repository.submittedRepository,
@@ -530,11 +618,7 @@ function RepositoryList({
                       <button
                         className="inline-button"
                         disabled={loading}
-                        onClick={() =>
-                          onSubmit(
-                            `https://github.com/${repository.githubOwner}/${repository.githubRepo}`,
-                          )
-                        }
+                        onClick={() => onSubmit(repository.githubRepoId)}
                       >
                         <Plus size={15} />
                         {t('submit')}
@@ -658,6 +742,7 @@ function TaskCard({
   loading,
   t,
   onInitialLoad,
+  onReport,
   onStar,
   onSkip,
 }: {
@@ -666,6 +751,7 @@ function TaskCard({
   loading: boolean;
   t: Translator;
   onInitialLoad: () => void;
+  onReport: (repositoryId: string) => void;
   onStar: (claimId: string) => void;
   onSkip: (claimId: string) => void;
 }) {
@@ -695,6 +781,43 @@ function TaskCard({
         </button>
       </section>
     );
+  }
+
+  if (task.status === 'tasks_disabled') {
+    return (
+      <section className="project-card empty-card">
+        <Shield size={34} />
+        <h2>{t('tasksDisabled')}</h2>
+        <p>{t('noProjectsAvailableHelp')}</p>
+      </section>
+    );
+  }
+
+  if (task.status === 'account_suspended') {
+    return (
+      <section className="project-card empty-card">
+        <Ban size={34} />
+        <h2>{t('userSuspended')}</h2>
+        <p>{t('noProjectsAvailableHelp')}</p>
+      </section>
+    );
+  }
+
+  if (task.status === 'daily_user_limit_reached') {
+    return (
+      <section className="project-card empty-card">
+        <Star size={34} />
+        <h2>{t('dailyLimitReached')}</h2>
+        <button className="secondary-button" disabled={loading} onClick={onInitialLoad}>
+          <RefreshCw size={17} />
+          {t('refresh')}
+        </button>
+      </section>
+    );
+  }
+
+  if (task.status !== 'available') {
+    return null;
   }
 
   return (
@@ -727,6 +850,14 @@ function TaskCard({
         >
           <X size={18} />
           {t('skip')}
+        </button>
+        <button
+          className="ghost-action"
+          disabled={loading}
+          onClick={() => onReport(task.repository.id)}
+        >
+          <Flag size={18} />
+          {t('reportProject')}
         </button>
         <button
           className="primary-action"
@@ -770,6 +901,109 @@ function CreditPanel({
                 {entry.amount}
               </strong>
               <span>{formatLedgerReason(language, entry.reason)}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AdminPanel({
+  language,
+  loading,
+  reports,
+  system,
+  t,
+  onCleanup,
+  onRepositoryAction,
+  onSuspendUser,
+}: {
+  language: Language;
+  loading: boolean;
+  reports: RepositoryReport[];
+  system: AdminSystemStatus | null;
+  t: Translator;
+  onCleanup: () => void;
+  onRepositoryAction: (
+    repositoryId: string,
+    action: 'archive' | 'reject' | 'restore',
+  ) => void;
+  onSuspendUser: (userId: string) => void;
+}) {
+  return (
+    <section className="tool-panel admin-panel">
+      <div className="panel-title">
+        <Shield size={18} />
+        <h2>{t('admin')}</h2>
+      </div>
+
+      <div className="admin-system">
+        <strong>{t('adminSystem')}</strong>
+        <span className={system?.starTasksEnabled ? 'positive' : 'negative'}>
+          tasks: {system?.starTasksEnabled ? 'on' : 'off'}
+        </span>
+        <span className={system?.repositoryPromotionEnabled ? 'positive' : 'negative'}>
+          promotion: {system?.repositoryPromotionEnabled ? 'on' : 'off'}
+        </span>
+      </div>
+
+      <button className="secondary-button" disabled={loading} onClick={onCleanup}>
+        <Trash2 size={16} />
+        {t('adminCleanup')}
+      </button>
+
+      <div className="admin-reports">
+        <strong>{t('adminReports')}</strong>
+        {reports.length === 0 ? (
+          <p className="muted">{t('noReports')}</p>
+        ) : (
+          reports.map((report) => (
+            <div className="admin-report-row" key={report.id}>
+              <div>
+                <strong>
+                  {report.repository.githubOwner}/{report.repository.githubRepo}
+                </strong>
+                <span>
+                  {formatStatus(language, report.repository.status)} · @
+                  {report.reporter.githubLogin}
+                </span>
+                {report.reason ? <p>{report.reason}</p> : null}
+              </div>
+              <div className="admin-actions">
+                <button
+                  className="inline-button"
+                  disabled={loading}
+                  onClick={() => onRepositoryAction(report.repository.id, 'archive')}
+                >
+                  <Archive size={14} />
+                  {t('archiveRepository')}
+                </button>
+                <button
+                  className="inline-button"
+                  disabled={loading}
+                  onClick={() => onRepositoryAction(report.repository.id, 'reject')}
+                >
+                  <Ban size={14} />
+                  {t('rejectRepository')}
+                </button>
+                <button
+                  className="inline-button"
+                  disabled={loading}
+                  onClick={() => onRepositoryAction(report.repository.id, 'restore')}
+                >
+                  <RotateCcw size={14} />
+                  {t('restoreRepository')}
+                </button>
+                <button
+                  className="inline-button"
+                  disabled={loading}
+                  onClick={() => onSuspendUser(report.reporter.id)}
+                >
+                  <Shield size={14} />
+                  {t('suspendReporter')}
+                </button>
+              </div>
             </div>
           ))
         )}

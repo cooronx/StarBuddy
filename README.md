@@ -54,6 +54,12 @@ GITHUB_OAUTH_CLIENT_ID="your-github-oauth-client-id"
 GITHUB_OAUTH_CLIENT_SECRET="your-github-oauth-client-secret"
 GITHUB_OAUTH_CALLBACK_URL="http://127.0.0.1:3000/auth/github/callback"
 WEB_APP_URL="http://127.0.0.1:5173"
+CORS_ORIGINS="http://127.0.0.1:5173"
+ADMIN_GITHUB_LOGINS="your-github-login"
+STAR_TASKS_ENABLED=true
+REPOSITORY_PROMOTION_ENABLED=true
+GITHUB_REQUEST_TIMEOUT_MS=10000
+CLEANUP_INTERVAL_MS=21600000
 HOST="0.0.0.0"
 PORT=3000
 ```
@@ -74,6 +80,12 @@ Backend API:
 
 ```txt
 http://127.0.0.1:3000
+```
+
+Health check:
+
+```txt
+http://127.0.0.1:3000/health
 ```
 
 ## 6. Install Frontend Dependencies
@@ -133,6 +145,54 @@ read:user public_repo
 ```
 
 The backend stores the GitHub OAuth access token encrypted. The frontend only stores the StarBuddy JWT.
+
+## Production Notes
+
+For a complete clone-to-production guide, see:
+
+[docs/production-deployment-from-clone.md](docs/production-deployment-from-clone.md)
+
+Run migrations with Prisma before starting or during container startup:
+
+```bash
+npx prisma migrate deploy
+```
+
+Set the production GitHub OAuth callback URL to the backend URL exactly:
+
+```txt
+https://YOUR_BACKEND_DOMAIN/auth/github/callback
+```
+
+Set the frontend API base URL:
+
+```env
+VITE_API_BASE_URL=https://YOUR_BACKEND_DOMAIN
+```
+
+Useful production backend variables:
+
+```env
+WEB_APP_URL="https://YOUR_FRONTEND_DOMAIN"
+CORS_ORIGINS="https://YOUR_FRONTEND_DOMAIN"
+ADMIN_GITHUB_LOGINS="your-github-login"
+STAR_TASKS_ENABLED=true
+REPOSITORY_PROMOTION_ENABLED=true
+HOST="0.0.0.0"
+PORT=3000
+```
+
+To stop new task execution immediately without taking the site down:
+
+```env
+STAR_TASKS_ENABLED=false
+```
+
+To stop new promotion submissions and activation/resume actions:
+
+```env
+REPOSITORY_PROMOTION_ENABLED=false
+```
 
 ## Useful Commands
 

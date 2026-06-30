@@ -11,8 +11,10 @@ export interface User {
   githubUserId: string;
   githubLogin: string;
   avatarUrl: string | null;
+  status: string;
   creditsBalance: number;
   githubAuthorizationStatus?: string | null;
+  isAdmin?: boolean;
 }
 
 export interface CurrentTask {
@@ -31,7 +33,11 @@ export interface CurrentTask {
 }
 
 export interface EmptyTask {
-  status: 'no_task_available';
+  status:
+    | 'no_task_available'
+    | 'tasks_disabled'
+    | 'account_suspended'
+    | 'daily_user_limit_reached';
 }
 
 export interface CreditLedgerEntry {
@@ -99,6 +105,42 @@ export type TaskResult = {
   ownerCreditDelta?: number;
 };
 
+export interface AdminSystemStatus {
+  starTasksEnabled: boolean;
+  repositoryPromotionEnabled: boolean;
+  adminGithubLogins: string[];
+  cleanupIntervalMs: number;
+  githubRequestTimeoutMs: number;
+  serverNow: string;
+}
+
+export interface RepositoryReport {
+  id: string;
+  reason: string | null;
+  status: string;
+  createdAt: string;
+  reviewedAt: string | null;
+  repository: {
+    id: string;
+    githubOwner: string;
+    githubRepo: string;
+    status: string;
+  };
+  reporter: {
+    id: string;
+    githubLogin: string;
+    avatarUrl: string | null;
+  };
+}
+
+export interface CleanupResult {
+  oauthLoginCodes: number;
+  rateLimitEvents: number;
+  taskClaims: number;
+  repositoryReports: number;
+  cleanedAt: string;
+}
+
 export class ApiClient {
   constructor(private readonly getAccessToken: () => string | null) {}
 
@@ -129,10 +171,9 @@ export class ApiClient {
     });
   }
 
-  createRepository(url: string) {
-    return this.request<Repository>('/repositories', {
+  createRepositoryFromGithub(githubRepoId: string) {
+    return this.request<Repository>(`/repositories/github/${githubRepoId}`, {
       method: 'POST',
-      body: JSON.stringify({ url }),
     });
   }
 
@@ -158,6 +199,60 @@ export class ApiClient {
 
   resumeRepository(repositoryId: string) {
     return this.request<Repository>(`/repositories/${repositoryId}/resume`, {
+      method: 'POST',
+    });
+  }
+
+  reportRepository(repositoryId: string, reason?: string) {
+    return this.request<{ id: string; status: string; repositoryId: string }>(
+      `/repositories/${repositoryId}/report`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      },
+    );
+  }
+
+  getAdminSystem() {
+    return this.request<AdminSystemStatus>('/admin/system');
+  }
+
+  listAdminReports() {
+    return this.request<RepositoryReport[]>('/admin/reports');
+  }
+
+  adminArchiveRepository(repositoryId: string) {
+    return this.request<Repository>(`/admin/repositories/${repositoryId}/archive`, {
+      method: 'POST',
+    });
+  }
+
+  adminRejectRepository(repositoryId: string) {
+    return this.request<Repository>(`/admin/repositories/${repositoryId}/reject`, {
+      method: 'POST',
+    });
+  }
+
+  adminRestoreRepository(repositoryId: string) {
+    return this.request<Repository>(`/admin/repositories/${repositoryId}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  adminSuspendUser(userId: string) {
+    return this.request<User>(`/admin/users/${userId}/suspend`, {
+      method: 'POST',
+    });
+  }
+
+  adminUnsuspendUser(userId: string) {
+    return this.request<User>(`/admin/users/${userId}/unsuspend`, {
+      method: 'POST',
+    });
+  }
+
+  adminCleanup() {
+    return this.request<CleanupResult>('/admin/cleanup', {
       method: 'POST',
     });
   }

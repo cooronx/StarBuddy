@@ -173,6 +173,55 @@ h1 {
   place-items: center;
 }
 
+.onboarding-layout {
+  grid-template-columns: minmax(280px, 520px) minmax(320px, 420px);
+  gap: 32px;
+  max-width: 1040px;
+  margin: 0 auto;
+  place-items: center stretch;
+}
+
+.onboarding-copy {
+  display: grid;
+  gap: 16px;
+}
+
+.eyebrow {
+  width: fit-content;
+  padding: 5px 9px;
+  border: 1px solid #cbd5df;
+  border-radius: 999px;
+  color: #0d6b6f;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.onboarding-copy h2 {
+  max-width: 11ch;
+  font-size: 48px;
+  line-height: 1.05;
+}
+
+.onboarding-copy p {
+  max-width: 58ch;
+  color: #4f5f72;
+  font-size: 17px;
+}
+
+.permission-list {
+  display: grid;
+  gap: 8px;
+}
+
+.permission-list span {
+  padding: 10px 12px;
+  border: 1px solid #d6dde6;
+  border-radius: 8px;
+  color: #223044;
+  background: #ffffff;
+}
+
 .login-panel,
 .tool-panel,
 .project-card {
@@ -215,7 +264,7 @@ input:focus {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(320px, 360px) minmax(340px, 1fr) minmax(220px, 260px);
+  grid-template-columns: minmax(320px, 390px) minmax(360px, 1fr) minmax(280px, 340px);
   gap: 18px;
   max-width: 1280px;
   margin: 0 auto;
@@ -569,6 +618,10 @@ input:focus {
   min-height: 36px;
 }
 
+.subtle-button {
+  color: #667386;
+}
+
 .star-summary-count {
   display: flex;
   align-items: center;
@@ -658,6 +711,64 @@ input:focus {
   color: #b42318;
 }
 
+.admin-panel {
+  gap: 16px;
+}
+
+.admin-system,
+.admin-reports,
+.admin-report-row {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-system {
+  padding: 10px;
+  border: 1px solid #d6dde6;
+  border-radius: 8px;
+  background: #f7f9fb;
+}
+
+.admin-system span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-reports {
+  max-height: 440px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.admin-report-row {
+  padding: 12px;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.admin-report-row div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-report-row span,
+.admin-report-row p {
+  color: #667386;
+  font-size: 13px;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.admin-actions .inline-button {
+  min-width: 0;
+  flex: 1 1 120px;
+}
+
 .empty-card {
   place-items: center;
   text-align: center;
@@ -693,6 +804,16 @@ input:focus {
 
   .workspace {
     display: grid;
+  }
+
+  .onboarding-layout {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .onboarding-copy h2 {
+    max-width: none;
+    font-size: 36px;
   }
 
   .profile {
