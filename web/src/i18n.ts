@@ -5,6 +5,8 @@ export const LANGUAGE_STORAGE_KEY = 'starbuddy_language';
 type TranslationKey =
   | 'addRepository'
   | 'alreadyStarredNoReward'
+  | 'activatePromotion'
+  | 'activePromotion'
   | 'claimExpires'
   | 'continue'
   | 'continueWithGithub'
@@ -18,6 +20,7 @@ type TranslationKey =
   | 'loadRecommendation'
   | 'loginComplete'
   | 'loadingProjects'
+  | 'inactivePromotion'
   | 'noCreditActivity'
   | 'noProjectsAvailable'
   | 'noProjectsAvailableHelp'
@@ -27,6 +30,11 @@ type TranslationKey =
   | 'oauthFailed'
   | 'oauthInsufficientScope'
   | 'oauthStateMismatch'
+  | 'pausePromotion'
+  | 'pausedPromotion'
+  | 'promotionActivated'
+  | 'promotionPaused'
+  | 'promotionResumed'
   | 'projectAdded'
   | 'projectQueueReady'
   | 'projectQueueReadyHelp'
@@ -35,6 +43,7 @@ type TranslationKey =
   | 'refreshingProjects'
   | 'repositoryNoCredits'
   | 'recentStargazers'
+  | 'resumePromotion'
   | 'signOut'
   | 'skip'
   | 'skippedLoading'
@@ -45,6 +54,7 @@ type TranslationKey =
   | 'submit'
   | 'submitted'
   | 'submittedCount'
+  | 'switchResetCountdown'
   | 'tagline'
   | 'yourProjects';
 
@@ -54,6 +64,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
     addRepository: 'Add your repository',
     alreadyStarredNoReward: '{repository} was already starred. No credits changed.',
+    activatePromotion: 'Set active',
+    activePromotion: '推广中',
     claimExpires: 'claim expires',
     continue: 'Continue',
     continueWithGithub: 'Continue with GitHub',
@@ -68,6 +80,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     loadRecommendation: 'Load recommendation',
     loginComplete: 'GitHub authorization complete. Loading your queue.',
     loadingProjects: 'Loading projects...',
+    inactivePromotion: '未激活',
     noCreditActivity: 'No credit activity yet.',
     noProjectsAvailable: 'No projects available',
     noProjectsAvailableHelp: 'Submit your own repository or refresh after more users join.',
@@ -78,6 +91,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     oauthInsufficientScope:
       'StarBuddy needs read:user and public_repo permissions to continue.',
     oauthStateMismatch: 'Authorization session expired. Try again.',
+    pausePromotion: 'Pause',
+    pausedPromotion: '已暂停',
+    promotionActivated: '{repository} is now active.',
+    promotionPaused: '{repository} paused.',
+    promotionResumed: '{repository} resumed.',
     projectAdded: '{repository} added.',
     projectQueueReady: 'Your project queue is ready.',
     projectQueueReadyHelp: 'Load the first recommendation and decide whether to star it.',
@@ -86,6 +104,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     refreshingProjects: 'Refreshing projects...',
     repositoryNoCredits: '{repository} was starred, but the owner had no credits left.',
     recentStargazers: 'Recent stargazers',
+    resumePromotion: 'Resume',
     signOut: 'Sign out',
     skip: 'Skip',
     skippedLoading: 'Skipped. Loading another project.',
@@ -96,12 +115,15 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     submit: 'Submit',
     submitted: 'Submitted',
     submittedCount: '{submitted}/{total} submitted to StarBuddy.',
+    switchResetCountdown: 'Switch available in {time}.',
     tagline: 'Discover projects, star deliberately, earn credits.',
     yourProjects: 'Your projects',
   },
   zh: {
     addRepository: '添加你的仓库',
     alreadyStarredNoReward: '{repository} 已经 Star 过，积分未变化。',
+    activatePromotion: '设为 Active',
+    activePromotion: 'Active',
     claimExpires: '任务过期时间',
     continue: '继续',
     continueWithGithub: '使用 GitHub 继续',
@@ -116,6 +138,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     loadRecommendation: '加载推荐项目',
     loginComplete: 'GitHub 授权完成，正在加载你的队列。',
     loadingProjects: '正在加载项目...',
+    inactivePromotion: 'Inactive',
     noCreditActivity: '暂无积分记录。',
     noProjectsAvailable: '暂无可推荐项目',
     noProjectsAvailableHelp: '提交你自己的仓库，或等更多用户加入后再刷新。',
@@ -125,6 +148,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     oauthFailed: 'GitHub 授权失败，请重试。',
     oauthInsufficientScope: 'StarBuddy 需要 read:user 和 public_repo 权限才能继续。',
     oauthStateMismatch: '授权会话已过期，请重试。',
+    pausePromotion: '暂停',
+    pausedPromotion: 'Paused',
+    promotionActivated: '{repository} 已设为 Active。',
+    promotionPaused: '{repository} 已暂停。',
+    promotionResumed: '{repository} 已恢复。',
     projectAdded: '{repository} 已添加。',
     projectQueueReady: '你的项目队列已就绪。',
     projectQueueReadyHelp: '加载第一个推荐项目，然后决定是否 Star。',
@@ -133,6 +161,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     refreshingProjects: '正在刷新项目...',
     repositoryNoCredits: '{repository} 已 Star，但仓库所有者积分不足。',
     recentStargazers: '最近点 Star 的用户',
+    resumePromotion: '恢复',
     signOut: '退出登录',
     skip: '跳过',
     skippedLoading: '已跳过，正在加载下一个项目。',
@@ -143,6 +172,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     submit: '提交',
     submitted: '已提交',
     submittedCount: '{submitted}/{total} 个已提交到 StarBuddy。',
+    switchResetCountdown: '{time} 后可再次切换。',
     tagline: '发现项目，认真 Star，赚取积分。',
     yourProjects: '你的项目',
   },
@@ -151,6 +181,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 const statusLabels: Record<Language, Record<string, string>> = {
   en: {
     active: 'Active',
+    inactive: 'Inactive',
+    paused: 'Paused',
     archived: 'Archived',
     rejected: 'Rejected',
     paused_insufficient_credits: 'Paused: insufficient credits',
@@ -168,6 +200,8 @@ const statusLabels: Record<Language, Record<string, string>> = {
   },
   zh: {
     active: '进行中',
+    inactive: '未激活',
+    paused: '已暂停',
     archived: '已归档',
     rejected: '已拒绝',
     paused_insufficient_credits: '已暂停：积分不足',

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/types';
@@ -29,5 +29,20 @@ export class RepositoriesController {
       user.userId,
       user.githubLogin,
     );
+  }
+
+  @Post(':id/activate')
+  activate(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.repositoriesService.activate(user.userId, id);
+  }
+
+  @Post(':id/pause')
+  pause(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.repositoriesService.pause(user.userId, id);
+  }
+
+  @Post(':id/resume')
+  resume(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.repositoriesService.resume(user.userId, id);
   }
 }

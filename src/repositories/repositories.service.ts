@@ -1,9 +1,14 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { StarActionStatus } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, RepositoryStatus, StarActionStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { GithubService } from '../github/github.service';
 import { parseGithubRepositoryUrl } from './repository-url';
+
+const OCCUPIED_PROMOTION_STATUSES = [
+  RepositoryStatus.active,
+  RepositoryStatus.paused,
+];
 
 @Injectable()
 export class RepositoriesService {
@@ -22,33 +27,55 @@ export class RepositoriesService {
       throw new BadRequestException('Only public repositories are supported');
     }
 
-    const repository = await this.prisma.repository.upsert({
-      where: {
-        githubOwner_githubRepo: {
+    const repository = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.repository.findUnique({
+        where: {
+          githubOwner_githubRepo: {
+            githubOwner: githubRepo.owner,
+            githubRepo: githubRepo.repo,
+          },
+        },
+      });
+
+      if (existing && existing.ownerUserId !== userId) {
+        throw new BadRequestException('Repository has already been submitted');
+      }
+
+      const occupiedSlot = await this.findOccupiedPromotionSlot(tx, userId);
+      const nextStatus =
+        occupiedSlot || existing?.status === RepositoryStatus.paused
+          ? existing?.status ?? RepositoryStatus.inactive
+          : RepositoryStatus.active;
+
+      if (existing) {
+        return tx.repository.update({
+          where: { id: existing.id },
+          data: {
+            description: githubRepo.description,
+            starsCountSnapshot: githubRepo.starsCount,
+            status:
+              existing.status === RepositoryStatus.inactive
+                ? nextStatus
+                : existing.status,
+          },
+          include: repositorySummaryInclude(),
+        });
+      }
+
+      return tx.repository.create({
+        data: {
+          ownerUserId: userId,
           githubOwner: githubRepo.owner,
           githubRepo: githubRepo.repo,
+          githubRepoId: githubRepo.id,
+          description: githubRepo.description,
+          starsCountSnapshot: githubRepo.starsCount,
+          status: nextStatus,
+          starTask: { create: {} },
         },
-      },
-      create: {
-        ownerUserId: userId,
-        githubOwner: githubRepo.owner,
-        githubRepo: githubRepo.repo,
-        githubRepoId: githubRepo.id,
-        description: githubRepo.description,
-        starsCountSnapshot: githubRepo.starsCount,
-        starTask: { create: {} },
-      },
-      update: {
-        description: githubRepo.description,
-        starsCountSnapshot: githubRepo.starsCount,
-        status: 'active',
-      },
-      include: repositorySummaryInclude(),
+        include: repositorySummaryInclude(),
+      });
     });
-
-    if (repository.ownerUserId !== userId) {
-      throw new BadRequestException('Repository has already been submitted');
-    }
 
     return serializeRepository(repository);
   }
@@ -65,11 +92,15 @@ export class RepositoriesService {
 
   async listGithubMine(userId: string, githubLogin: string) {
     const token = await this.authService.getActiveGithubAccessToken(userId);
-    const [githubRepositories, submittedRepositories] = await Promise.all([
+    const [githubRepositories, submittedRepositories, user] = await Promise.all([
       this.github.listPublicRepositories(githubLogin, token),
       this.prisma.repository.findMany({
         where: { ownerUserId: userId },
         include: repositorySummaryInclude(),
+      }),
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { lastPromotionSwitchAt: true },
       }),
     ]);
 
@@ -80,14 +111,169 @@ export class RepositoriesService {
       ]),
     );
 
-    return githubRepositories.map((repository) => ({
-      githubRepoId: repository.id.toString(),
-      githubOwner: repository.owner,
-      githubRepo: repository.repo,
-      description: repository.description ?? null,
-      starsCountSnapshot: repository.starsCount,
-      submittedRepository: submittedByGithubId.get(repository.id.toString()) ?? null,
-    }));
+    return {
+      repositories: githubRepositories.map((repository) => ({
+        githubRepoId: repository.id.toString(),
+        githubOwner: repository.owner,
+        githubRepo: repository.repo,
+        description: repository.description ?? null,
+        starsCountSnapshot: repository.starsCount,
+        submittedRepository:
+          submittedByGithubId.get(repository.id.toString()) ?? null,
+      })),
+      promotionSwitch: serializePromotionSwitch(user.lastPromotionSwitchAt),
+    };
+  }
+
+  async activate(userId: string, repositoryId: string) {
+    const repository = await this.prisma.$transaction(async (tx) => {
+      const target = await this.findUserRepositoryOrThrow(
+        tx,
+        userId,
+        repositoryId,
+      );
+
+      if (target.status === RepositoryStatus.active) {
+        return target;
+      }
+
+      if (target.status === RepositoryStatus.archived) {
+        throw new BadRequestException('Archived repositories cannot be activated');
+      }
+
+      if (target.status === RepositoryStatus.rejected) {
+        throw new BadRequestException('Rejected repositories cannot be activated');
+      }
+
+      if (target.status === RepositoryStatus.paused) {
+        return tx.repository.update({
+          where: { id: target.id },
+          data: { status: RepositoryStatus.active },
+          include: repositorySummaryInclude(),
+        });
+      }
+
+      const [occupiedSlot, user] = await Promise.all([
+        this.findOccupiedPromotionSlot(tx, userId),
+        tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { lastPromotionSwitchAt: true },
+        }),
+      ]);
+
+      const now = new Date();
+      if (
+        occupiedSlot &&
+        occupiedSlot.id !== target.id &&
+        wasPromotionSwitchUsedToday(user.lastPromotionSwitchAt, now)
+      ) {
+        throw new BadRequestException(
+          'Promotion switch is available once per server-local day',
+        );
+      }
+
+      if (occupiedSlot && occupiedSlot.id !== target.id) {
+        await tx.repository.update({
+          where: { id: occupiedSlot.id },
+          data: { status: RepositoryStatus.inactive },
+        });
+        await tx.user.update({
+          where: { id: userId },
+          data: { lastPromotionSwitchAt: now },
+        });
+      }
+
+      return tx.repository.update({
+        where: { id: target.id },
+        data: { status: RepositoryStatus.active },
+        include: repositorySummaryInclude(),
+      });
+    });
+
+    return serializeRepository(repository);
+  }
+
+  async pause(userId: string, repositoryId: string) {
+    const repository = await this.prisma.$transaction(async (tx) => {
+      const target = await this.findUserRepositoryOrThrow(
+        tx,
+        userId,
+        repositoryId,
+      );
+
+      if (target.status === RepositoryStatus.paused) {
+        return target;
+      }
+
+      if (target.status !== RepositoryStatus.active) {
+        throw new BadRequestException('Only active repositories can be paused');
+      }
+
+      return tx.repository.update({
+        where: { id: target.id },
+        data: { status: RepositoryStatus.paused },
+        include: repositorySummaryInclude(),
+      });
+    });
+
+    return serializeRepository(repository);
+  }
+
+  async resume(userId: string, repositoryId: string) {
+    const repository = await this.prisma.$transaction(async (tx) => {
+      const target = await this.findUserRepositoryOrThrow(
+        tx,
+        userId,
+        repositoryId,
+      );
+
+      if (target.status === RepositoryStatus.active) {
+        return target;
+      }
+
+      if (target.status !== RepositoryStatus.paused) {
+        throw new BadRequestException('Only paused repositories can be resumed');
+      }
+
+      return tx.repository.update({
+        where: { id: target.id },
+        data: { status: RepositoryStatus.active },
+        include: repositorySummaryInclude(),
+      });
+    });
+
+    return serializeRepository(repository);
+  }
+
+  private findOccupiedPromotionSlot(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ) {
+    return tx.repository.findFirst({
+      where: {
+        ownerUserId: userId,
+        status: { in: OCCUPIED_PROMOTION_STATUSES },
+      },
+      orderBy: { createdAt: 'asc' },
+      include: repositorySummaryInclude(),
+    });
+  }
+
+  private async findUserRepositoryOrThrow(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    repositoryId: string,
+  ) {
+    const repository = await tx.repository.findFirst({
+      where: { id: repositoryId, ownerUserId: userId },
+      include: repositorySummaryInclude(),
+    });
+
+    if (!repository) {
+      throw new NotFoundException('Repository not found');
+    }
+
+    return repository;
   }
 }
 
@@ -166,4 +352,49 @@ function repositorySummaryInclude() {
       },
     },
   };
+}
+
+function serializePromotionSwitch(
+  lastPromotionSwitchAt: Date | null,
+  now = new Date(),
+) {
+  const switchUsedToday = wasPromotionSwitchUsedToday(
+    lastPromotionSwitchAt,
+    now,
+  );
+
+  return {
+    canSwitch: !switchUsedToday,
+    switchUsedToday,
+    lastSwitchedAt: lastPromotionSwitchAt?.toISOString() ?? null,
+    serverNow: now.toISOString(),
+    nextSwitchResetAt: nextServerLocalMidnight(now).toISOString(),
+  };
+}
+
+function wasPromotionSwitchUsedToday(
+  lastPromotionSwitchAt: Date | null,
+  now = new Date(),
+) {
+  if (!lastPromotionSwitchAt) {
+    return false;
+  }
+
+  return (
+    lastPromotionSwitchAt.getFullYear() === now.getFullYear() &&
+    lastPromotionSwitchAt.getMonth() === now.getMonth() &&
+    lastPromotionSwitchAt.getDate() === now.getDate()
+  );
+}
+
+function nextServerLocalMidnight(now: Date) {
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
+    0,
+    0,
+    0,
+    0,
+  );
 }

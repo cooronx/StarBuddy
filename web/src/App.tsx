@@ -3,6 +3,8 @@ import {
   ArrowRight,
   Github,
   Loader2,
+  Pause,
+  Play,
   Plus,
   RefreshCw,
   Send,
@@ -17,7 +19,7 @@ import {
   CurrentTask,
   EmptyTask,
   GithubRepository,
-  Repository,
+  PromotionSwitchStatus,
   TaskResult,
   User,
 } from './api';
@@ -43,6 +45,8 @@ export function App() {
   );
   const [ledger, setLedger] = useState<CreditLedgerEntry[]>([]);
   const [repositories, setRepositories] = useState<GithubRepository[]>([]);
+  const [promotionSwitch, setPromotionSwitch] =
+    useState<PromotionSwitchStatus | null>(null);
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -72,7 +76,8 @@ export function App() {
       setUser(me);
       setCurrentTask(task);
       setLedger(history);
-      setRepositories(mine);
+      setRepositories(mine.repositories);
+      setPromotionSwitch(mine.promotionSwitch);
     } catch (refreshError) {
       setError(
         errorMessage(refreshError, (key) => translate(getInitialLanguage(), key)),
@@ -143,12 +148,12 @@ export function App() {
     setMessage('');
     try {
       const repository = await api.createRepository(url);
-      setRepositories((items) => mergeSubmittedRepository(items, repository));
       setMessage(
         t('projectAdded', {
           repository: `${repository.githubOwner}/${repository.githubRepo}`,
         }),
       );
+      await refresh();
     } catch (repositoryError) {
       setError(errorMessage(repositoryError, t));
     } finally {
@@ -187,6 +192,63 @@ export function App() {
     }
   }
 
+  async function handleActivateRepository(repositoryId: string) {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const repository = await api.activateRepository(repositoryId);
+      setMessage(
+        t('promotionActivated', {
+          repository: `${repository.githubOwner}/${repository.githubRepo}`,
+        }),
+      );
+      await refresh();
+    } catch (activateError) {
+      setError(errorMessage(activateError, t));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePauseRepository(repositoryId: string) {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const repository = await api.pauseRepository(repositoryId);
+      setMessage(
+        t('promotionPaused', {
+          repository: `${repository.githubOwner}/${repository.githubRepo}`,
+        }),
+      );
+      await refresh();
+    } catch (pauseError) {
+      setError(errorMessage(pauseError, t));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResumeRepository(repositoryId: string) {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const repository = await api.resumeRepository(repositoryId);
+      setMessage(
+        t('promotionResumed', {
+          repository: `${repository.githubOwner}/${repository.githubRepo}`,
+        }),
+      );
+      await refresh();
+    } catch (resumeError) {
+      setError(errorMessage(resumeError, t));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleLogout() {
     clearSessionState();
     setMessage('');
@@ -200,6 +262,7 @@ export function App() {
     setCurrentTask(null);
     setLedger([]);
     setRepositories([]);
+    setPromotionSwitch(null);
   }
 
   function handleLanguageChange(nextLanguage: Language) {
@@ -263,8 +326,12 @@ export function App() {
             <RepositoryList
               language={language}
               loading={loading}
+              promotionSwitch={promotionSwitch}
               repositories={repositories}
               t={t}
+              onActivate={handleActivateRepository}
+              onPause={handlePauseRepository}
+              onResume={handleResumeRepository}
               onSubmit={handleRepositorySubmit}
             />
             <RepositoryForm loading={loading} t={t} onSubmit={handleRepositorySubmit} />
@@ -358,22 +425,39 @@ function RepositoryForm({
 function RepositoryList({
   language,
   loading,
+  promotionSwitch,
   repositories,
   t,
+  onActivate,
+  onPause,
+  onResume,
   onSubmit,
 }: {
   language: Language;
   loading: boolean;
+  promotionSwitch: PromotionSwitchStatus | null;
   repositories: GithubRepository[];
   t: Translator;
+  onActivate: (repositoryId: string) => void;
+  onPause: (repositoryId: string) => void;
+  onResume: (repositoryId: string) => void;
   onSubmit: (url: string) => void;
 }) {
   const submittedCount = repositories.filter(
     (repository) => repository.submittedRepository,
   ).length;
+  const switchRemainingMs = usePromotionSwitchRemainingMs(promotionSwitch);
+  const canSwitch =
+    promotionSwitch === null ||
+    promotionSwitch.canSwitch ||
+    switchRemainingMs <= 0;
+  const showSwitchCountdown =
+    promotionSwitch !== null &&
+    promotionSwitch.switchUsedToday &&
+    switchRemainingMs > 0;
 
   return (
-    <section className="tool-panel">
+    <section className="tool-panel repository-panel">
       <div className="panel-title">
         <Github size={18} />
         <h2>{t('yourProjects')}</h2>
@@ -383,6 +467,13 @@ function RepositoryList({
           {t('submittedCount', {
             submitted: submittedCount,
             total: repositories.length,
+          })}
+        </p>
+      ) : null}
+      {showSwitchCountdown ? (
+        <p className="promotion-reset">
+          {t('switchResetCountdown', {
+            time: formatDuration(switchRemainingMs),
           })}
         </p>
       ) : null}
@@ -404,37 +495,82 @@ function RepositoryList({
             ) : null}
             {repositories.map((repository) => {
               const submitted = repository.submittedRepository;
+              const description =
+                submitted?.description ??
+                repository.description ??
+                t('descriptionFallback');
+              const starsCount =
+                submitted?.starsCountSnapshot ?? repository.starsCountSnapshot;
 
               return (
                 <div className="repository-row" key={repository.githubRepoId}>
-                  <div>
-                    <strong>
-                      {repository.githubOwner}/{repository.githubRepo}
-                    </strong>
-                    <span>
-                      {submitted?.starTask?.status
-                        ? formatStatus(language, submitted.starTask.status)
-                        : submitted?.status
-                          ? formatStatus(language, submitted.status)
-                          : `${repository.starsCountSnapshot} ${t('stars')}`}
-                    </span>
+                  <div className="repository-main">
+                    <div className="repository-heading">
+                      <strong>
+                        {repository.githubOwner}/{repository.githubRepo}
+                      </strong>
+                      <span className="repository-stars">
+                        <Star size={14} />
+                        {starsCount} {t('stars')}
+                      </span>
+                    </div>
+                    <p className="repository-description">{description}</p>
+                    <div className="repository-meta-line">
+                      {submitted ? (
+                        <span className={`status-pill status-${submitted.status}`}>
+                          {formatStatus(language, submitted.status)}
+                        </span>
+                      ) : (
+                        <span className="repository-source">GitHub</span>
+                      )}
+                    </div>
                   </div>
-                  {submitted ? (
-                    <span className="status-pill">{t('submitted')}</span>
-                  ) : (
-                    <button
-                      className="inline-button"
-                      disabled={loading}
-                      onClick={() =>
-                        onSubmit(
-                          `https://github.com/${repository.githubOwner}/${repository.githubRepo}`,
-                        )
-                      }
-                    >
-                      <Plus size={15} />
-                      {t('submit')}
-                    </button>
-                  )}
+                  <div className="repository-controls">
+                    {!submitted ? (
+                      <button
+                        className="inline-button"
+                        disabled={loading}
+                        onClick={() =>
+                          onSubmit(
+                            `https://github.com/${repository.githubOwner}/${repository.githubRepo}`,
+                          )
+                        }
+                      >
+                        <Plus size={15} />
+                        {t('submit')}
+                      </button>
+                    ) : null}
+                    {submitted?.status === 'active' ? (
+                      <button
+                        className="inline-button"
+                        disabled={loading}
+                        onClick={() => onPause(submitted.id)}
+                      >
+                        <Pause size={14} />
+                        {t('pausePromotion')}
+                      </button>
+                    ) : null}
+                    {submitted?.status === 'paused' ? (
+                      <button
+                        className="inline-button"
+                        disabled={loading}
+                        onClick={() => onResume(submitted.id)}
+                      >
+                        <Play size={14} />
+                        {t('resumePromotion')}
+                      </button>
+                    ) : null}
+                    {submitted?.status === 'inactive' ? (
+                      <button
+                        className="inline-button"
+                        disabled={loading || !canSwitch}
+                        onClick={() => onActivate(submitted.id)}
+                      >
+                        <Star size={14} />
+                        {t('activatePromotion')}
+                      </button>
+                    ) : null}
+                  </div>
                   {submitted ? (
                     <div className="repository-star-summary">
                       <div className="star-summary-count">
@@ -472,6 +608,48 @@ function RepositoryList({
       </div>
     </section>
   );
+}
+
+function usePromotionSwitchRemainingMs(
+  promotionSwitch: PromotionSwitchStatus | null,
+) {
+  const [remainingMs, setRemainingMs] = useState(0);
+
+  useEffect(() => {
+    if (!promotionSwitch || promotionSwitch.canSwitch) {
+      setRemainingMs(0);
+      return;
+    }
+
+    const serverNowMs = Date.parse(promotionSwitch.serverNow);
+    const resetMs = Date.parse(promotionSwitch.nextSwitchResetAt);
+    const clientOffsetMs = serverNowMs - Date.now();
+
+    function updateRemaining() {
+      setRemainingMs(Math.max(0, resetMs - (Date.now() + clientOffsetMs)));
+    }
+
+    updateRemaining();
+    const interval = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(interval);
+  }, [
+    promotionSwitch?.canSwitch,
+    promotionSwitch?.nextSwitchResetAt,
+    promotionSwitch?.serverNow,
+  ]);
+
+  return remainingMs;
+}
+
+function formatDuration(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [hours, minutes, seconds]
+    .map((part) => part.toString().padStart(2, '0'))
+    .join(':');
 }
 
 function TaskCard({
@@ -661,40 +839,4 @@ function oauthErrorMessage(error: string, t: Translator) {
     return t('oauthStateMismatch');
   }
   return t('oauthFailed');
-}
-
-function mergeSubmittedRepository(
-  repositories: GithubRepository[],
-  submittedRepository: Repository,
-) {
-  const nextRepositories = repositories.map((repository) => {
-    if (repository.githubRepoId !== submittedRepository.githubRepoId) {
-      return repository;
-    }
-
-    return {
-      ...repository,
-      submittedRepository,
-    };
-  });
-
-  if (
-    nextRepositories.some(
-      (repository) => repository.githubRepoId === submittedRepository.githubRepoId,
-    )
-  ) {
-    return nextRepositories;
-  }
-
-  return [
-    {
-      githubRepoId: submittedRepository.githubRepoId,
-      githubOwner: submittedRepository.githubOwner,
-      githubRepo: submittedRepository.githubRepo,
-      description: submittedRepository.description,
-      starsCountSnapshot: submittedRepository.starsCountSnapshot,
-      submittedRepository,
-    },
-    ...nextRepositories,
-  ];
 }

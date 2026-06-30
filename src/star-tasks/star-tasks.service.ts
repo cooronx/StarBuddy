@@ -193,6 +193,14 @@ export class StarTasksService {
         from star_tasks st
         join repositories r on r.id = st.repository_id
         join users owner on owner.id = r.owner_user_id
+        left join lateral (
+          select
+            count(*)::int as rewarded_star_count,
+            max(sa.created_at) as last_rewarded_at
+          from star_actions sa
+          where sa.repository_id = r.id
+            and sa.status = 'completed_rewarded'
+        ) metrics on true
         where st.status = 'active'
           and r.status = 'active'
           and r.owner_user_id <> ${userId}
@@ -211,7 +219,10 @@ export class StarTasksService {
               and tc.status = 'claimed'
               and tc.expires_at > now()
           )
-        order by st.created_at asc
+        order by
+          metrics.rewarded_star_count asc,
+          metrics.last_rewarded_at asc nulls first,
+          st.created_at asc
         limit 1
         for update of st skip locked
       `;

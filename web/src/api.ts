@@ -59,6 +59,14 @@ export interface Repository {
   recentStars: RepositoryStar[];
 }
 
+export interface PromotionSwitchStatus {
+  canSwitch: boolean;
+  switchUsedToday: boolean;
+  lastSwitchedAt: string | null;
+  serverNow: string;
+  nextSwitchResetAt: string;
+}
+
 export interface RepositoryStar {
   id: string;
   starredAt: string;
@@ -76,6 +84,11 @@ export interface GithubRepository {
   description: string | null;
   starsCountSnapshot: number;
   submittedRepository: Repository | null;
+}
+
+export interface GithubRepositoriesResponse {
+  repositories: GithubRepository[];
+  promotionSwitch: PromotionSwitchStatus;
 }
 
 export type TaskResult = {
@@ -128,7 +141,25 @@ export class ApiClient {
   }
 
   listGithubRepositories() {
-    return this.request<GithubRepository[]>('/repositories/github/mine');
+    return this.request<GithubRepositoriesResponse>('/repositories/github/mine');
+  }
+
+  activateRepository(repositoryId: string) {
+    return this.request<Repository>(`/repositories/${repositoryId}/activate`, {
+      method: 'POST',
+    });
+  }
+
+  pauseRepository(repositoryId: string) {
+    return this.request<Repository>(`/repositories/${repositoryId}/pause`, {
+      method: 'POST',
+    });
+  }
+
+  resumeRepository(repositoryId: string) {
+    return this.request<Repository>(`/repositories/${repositoryId}/resume`, {
+      method: 'POST',
+    });
   }
 
   getCreditsBalance() {
