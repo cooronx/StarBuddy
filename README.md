@@ -202,6 +202,7 @@ Backend:
 npm run typecheck
 npm run build
 npm run lint
+npm run seed:demo
 ```
 
 Frontend:
@@ -211,3 +212,47 @@ cd web
 npm run typecheck
 npm run build
 ```
+
+## Local Mock Testing
+
+For local multi-user testing without real GitHub accounts, set:
+
+```env
+MOCK_GITHUB=true
+ADMIN_GITHUB_LOGINS="mock-admin"
+```
+
+Before seeding demo users, make sure your local schema is current:
+
+```bash
+npx prisma migrate dev
+```
+
+Then reset demo data:
+
+```bash
+npm run seed:demo
+```
+
+`seed:demo` only runs against a local database (`localhost` or `127.0.0.1`) and refuses to run in `NODE_ENV=production`.
+
+Start backend and frontend normally. The login page will show mock users:
+
+```txt
+mock-alice
+mock-bob
+mock-charlie
+mock-diana
+mock-admin
+```
+
+The seeded dataset includes:
+
+- mock users with starting balances and matching ledger history
+- submitted and unsubmitted repositories per user
+- one paused promotion slot
+- one rejected repository
+- rewarded and no-reward star history
+- open moderation reports for the admin flow
+
+Mock mode only works outside `NODE_ENV=production`.

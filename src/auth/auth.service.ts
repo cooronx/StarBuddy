@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -10,7 +11,8 @@ import { createHash, randomBytes } from 'crypto';
 import { AppConfigService } from '../config/app-config.service';
 import { CredentialCryptoService } from '../credential-crypto/credential-crypto.service';
 import { PrismaService } from '../database/prisma.service';
-import { GithubService } from '../github/github.service';
+import { RealGithubClient } from '../github/github.service';
+import { MOCK_GITHUB_USERS } from '../github/mock-github.data';
 
 const SIGNUP_BONUS_CREDITS = 5;
 const REQUIRED_GITHUB_SCOPES = ['read:user', 'public_repo'];
@@ -20,7 +22,7 @@ const LOGIN_CODE_TTL_MS = 60_000;
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly github: GithubService,
+    private readonly realGithub: RealGithubClient,
     private readonly credentialCrypto: CredentialCryptoService,
     private readonly jwtService: JwtService,
     private readonly config: AppConfigService,
@@ -36,13 +38,13 @@ export class AuthService {
   }
 
   async handleGithubOAuthCallback(code: string): Promise<{ loginCode: string }> {
-    const accessToken = await this.github.exchangeOAuthCode({
+    const accessToken = await this.realGithub.exchangeOAuthCode({
       clientId: this.config.githubOAuthClientId,
       clientSecret: this.config.githubOAuthClientSecret,
       code,
       redirectUri: this.config.githubOAuthCallbackUrl,
     });
-    const authenticated = await this.github.getAuthenticatedUserWithScopes(
+    const authenticated = await this.realGithub.getAuthenticatedUserWithScopes(
       accessToken,
     );
 
@@ -173,6 +175,51 @@ export class AuthService {
     };
   }
 
+  listMockUsers() {
+    if (!this.config.mockGithubEnabled) {
+      return {
+        mockGithubEnabled: false,
+        users: [],
+      };
+    }
+
+    return {
+      mockGithubEnabled: true,
+      users: MOCK_GITHUB_USERS.map((user) => ({
+        githubUserId: user.githubUserId,
+        githubLogin: user.login,
+        avatarUrl: user.avatarUrl,
+        isAdmin: this.config.adminGithubLogins.includes(
+          user.login.toLowerCase(),
+        ),
+      })),
+    };
+  }
+
+  async createMockSession(login: string) {
+    if (!this.config.mockGithubEnabled) {
+      throw new NotFoundException('Mock GitHub is not enabled');
+    }
+
+    const mockUser = MOCK_GITHUB_USERS.find((user) => user.login === login);
+    if (!mockUser) {
+      throw new NotFoundException('Mock user not found');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { githubUserId: BigInt(mockUser.githubUserId) },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Run npm run seed:demo before mock login');
+    }
+
+    return {
+      accessToken: this.signUser(user.id, user.githubUserId, user.githubLogin),
+      user: serializeUser(user),
+    };
+  }
+
   async getMe(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
@@ -221,6 +268,18 @@ export class AuthService {
   }
 
   async getActiveGithubAccessToken(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { githubLogin: true },
+    });
+
+    if (
+      this.config.mockGithubEnabled &&
+      MOCK_GITHUB_USERS.some((mockUser) => mockUser.login === user.githubLogin)
+    ) {
+      return `mock:${user.githubLogin}`;
+    }
+
     const authorization = await this.prisma.githubAuthorization.findUnique({
       where: { userId },
     });

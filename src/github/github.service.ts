@@ -51,7 +51,7 @@ export interface GithubAuthenticatedUser {
 }
 
 @Injectable()
-export class GithubService {
+export class RealGithubClient implements GithubClient {
   constructor(private readonly config: AppConfigService) {}
 
   async exchangeOAuthCode(params: {
@@ -285,6 +285,31 @@ export class GithubService {
     });
   }
 }
+
+export interface GithubClient {
+  exchangeOAuthCode(params: {
+    clientId: string;
+    clientSecret: string;
+    code: string;
+    redirectUri: string;
+  }): Promise<string>;
+  getAuthenticatedUser(token: string): Promise<GithubUser>;
+  getAuthenticatedUserWithScopes(token: string): Promise<GithubAuthenticatedUser>;
+  getRepository(
+    owner: string,
+    repo: string,
+    token?: string,
+  ): Promise<GithubRepository>;
+  listPublicRepositories(
+    githubLogin: string,
+    token?: string,
+  ): Promise<GithubRepository[]>;
+  isStarred(owner: string, repo: string, token: string): Promise<boolean>;
+  starRepository(owner: string, repo: string, token: string): Promise<void>;
+}
+
+export const GITHUB_CLIENT = Symbol('GITHUB_CLIENT');
+export type GithubService = GithubClient;
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';

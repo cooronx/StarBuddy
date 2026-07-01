@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -15,7 +16,7 @@ import {
 import { AuthService } from '../auth/auth.service';
 import { AppConfigService } from '../config/app-config.service';
 import { PrismaService } from '../database/prisma.service';
-import { GithubService } from '../github/github.service';
+import { GITHUB_CLIENT, GithubService } from '../github/github.service';
 
 const CLAIM_TTL_MINUTES = 10;
 const USER_DAILY_REWARDED_LIMIT = 30;
@@ -46,6 +47,7 @@ export class StarTasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
+    @Inject(GITHUB_CLIENT)
     private readonly github: GithubService,
     private readonly config: AppConfigService,
   ) {}

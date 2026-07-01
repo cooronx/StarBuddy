@@ -9,6 +9,53 @@
 
 因为后端和数据库在同一台主机，PostgreSQL 不需要暴露公网，`DATABASE_URL` 使用 `127.0.0.1`。
 
+## 上线速查
+
+后端构建和启动：
+
+```bash
+docker build -t starbuddy-api .
+docker run -d --name starbuddy-api --restart unless-stopped --env-file .env --network host starbuddy-api
+```
+
+后端健康检查：
+
+```txt
+https://YOUR_BACKEND_DOMAIN/health
+```
+
+前端构建输出：
+
+```bash
+cd web
+npm ci
+npm run build
+```
+
+```txt
+web/dist
+```
+
+生产环境必填后端变量：
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `CREDENTIAL_ENCRYPTION_KEY`
+- `GITHUB_OAUTH_CLIENT_ID`
+- `GITHUB_OAUTH_CLIENT_SECRET`
+- `GITHUB_OAUTH_CALLBACK_URL`
+- `WEB_APP_URL`
+- `CORS_ORIGINS`
+- `ADMIN_GITHUB_LOGINS`
+- `HOST=0.0.0.0`
+- `PORT=3000`
+
+生产环境常用开关：
+
+- `STAR_TASKS_ENABLED=false` 会停止新的任务领取和点星执行
+- `REPOSITORY_PROMOTION_ENABLED=false` 会停止新的仓库提交、激活和恢复
+- `MOCK_GITHUB` 不允许在生产环境开启
+
 ## 0. 最终地址
 
 你最终会有：

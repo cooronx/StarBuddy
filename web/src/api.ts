@@ -6,6 +6,18 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface MockUser {
+  githubUserId: string;
+  githubLogin: string;
+  avatarUrl: string | null;
+  isAdmin: boolean;
+}
+
+export interface MockUsersResponse {
+  mockGithubEnabled: boolean;
+  users: MockUser[];
+}
+
 export interface User {
   id: string;
   githubUserId: string;
@@ -148,6 +160,17 @@ export class ApiClient {
     return this.request<AuthResponse>('/auth/session', {
       method: 'POST',
       body: JSON.stringify({ code }),
+    });
+  }
+
+  listMockUsers() {
+    return this.request<MockUsersResponse>('/auth/mock-users');
+  }
+
+  createMockSession(login: string) {
+    return this.request<AuthResponse>('/auth/mock-session', {
+      method: 'POST',
+      body: JSON.stringify({ login }),
     });
   }
 

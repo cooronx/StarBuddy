@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 export class AppConfigService {
   readonly port = Number(process.env.PORT ?? 3000);
   readonly host = process.env.HOST ?? '127.0.0.1';
+  readonly nodeEnv = process.env.NODE_ENV ?? 'development';
   readonly databaseUrl = requiredEnv('DATABASE_URL');
   readonly jwtSecret = requiredEnv('JWT_SECRET');
   readonly githubOAuthClientId = requiredEnv('GITHUB_OAUTH_CLIENT_ID');
@@ -30,6 +31,7 @@ export class AppConfigService {
     process.env.CLEANUP_INTERVAL_MS,
     6 * 60 * 60 * 1000,
   );
+  readonly mockGithubEnabled = parseMockGithubEnabled();
   readonly credentialEncryptionKey = parseEncryptionKey(
     requiredEnv('CREDENTIAL_ENCRYPTION_KEY'),
   );
@@ -94,4 +96,13 @@ function parsePositiveInteger(
   }
 
   return parsed;
+}
+
+function parseMockGithubEnabled(): boolean {
+  const enabled = parseBoolean(process.env.MOCK_GITHUB, false);
+  if (enabled && process.env.NODE_ENV === 'production') {
+    throw new Error('MOCK_GITHUB cannot be enabled in production');
+  }
+
+  return enabled;
 }

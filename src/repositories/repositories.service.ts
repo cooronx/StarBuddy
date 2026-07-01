@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import {
   Prisma,
@@ -14,7 +15,7 @@ import {
 import { AppConfigService } from '../config/app-config.service';
 import { PrismaService } from '../database/prisma.service';
 import { AuthService } from '../auth/auth.service';
-import { GithubService } from '../github/github.service';
+import { GITHUB_CLIENT, GithubService } from '../github/github.service';
 
 const OCCUPIED_PROMOTION_STATUSES = [
   RepositoryStatus.active,
@@ -26,6 +27,7 @@ export class RepositoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
+    @Inject(GITHUB_CLIENT)
     private readonly github: GithubService,
     private readonly config: AppConfigService,
   ) {}

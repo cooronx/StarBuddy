@@ -222,6 +222,29 @@ h1 {
   background: #ffffff;
 }
 
+.mock-login-panel {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #edf1f5;
+}
+
+.mock-login-panel > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mock-login-panel .inline-button {
+  flex: 1 1 150px;
+}
+
+.mock-login-panel img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
 .login-panel,
 .tool-panel,
 .project-card {

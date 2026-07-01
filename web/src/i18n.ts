@@ -29,6 +29,7 @@ type TranslationKey =
   | 'loadRecommendation'
   | 'loginComplete'
   | 'loadingProjects'
+  | 'mockLogin'
   | 'inactivePromotion'
   | 'noCreditActivity'
   | 'noProjectsAvailable'
@@ -111,6 +112,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     loadRecommendation: 'Load recommendation',
     loginComplete: 'GitHub authorization complete. Loading your queue.',
     loadingProjects: 'Loading projects...',
+    mockLogin: 'Mock login',
     inactivePromotion: '未激活',
     noCreditActivity: 'No credit activity yet.',
     noProjectsAvailable: 'No projects available',
@@ -191,6 +193,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     loadRecommendation: '加载推荐项目',
     loginComplete: 'GitHub 授权完成，正在加载你的队列。',
     loadingProjects: '正在加载项目...',
+    mockLogin: 'Mock 登录',
     inactivePromotion: 'Inactive',
     noCreditActivity: '暂无积分记录。',
     noProjectsAvailable: '暂无可推荐项目',

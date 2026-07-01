@@ -25,6 +25,7 @@ import {
   CurrentTask,
   EmptyTask,
   GithubRepository,
+  MockUser,
   PromotionSwitchStatus,
   RepositoryReport,
   TaskResult,
@@ -56,6 +57,7 @@ export function App() {
     useState<PromotionSwitchStatus | null>(null);
   const [adminSystem, setAdminSystem] = useState<AdminSystemStatus | null>(null);
   const [adminReports, setAdminReports] = useState<RepositoryReport[]>([]);
+  const [mockUsers, setMockUsers] = useState<MockUser[]>([]);
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -113,6 +115,22 @@ export function App() {
   }, [refresh]);
 
   useEffect(() => {
+    if (accessToken) {
+      setMockUsers([]);
+      return;
+    }
+
+    api
+      .listMockUsers()
+      .then((response) => {
+        setMockUsers(response.mockGithubEnabled ? response.users : []);
+      })
+      .catch(() => {
+        setMockUsers([]);
+      });
+  }, [accessToken, api]);
+
+  useEffect(() => {
     if (window.location.pathname !== '/auth/callback') {
       return;
     }
@@ -161,6 +179,23 @@ export function App() {
     setError('');
     setMessage('');
     window.location.href = `${API_BASE_URL}/auth/github`;
+  }
+
+  async function handleMockLogin(login: string) {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const response = await api.createMockSession(login);
+      localStorage.setItem(ACCESS_TOKEN_KEY, response.accessToken);
+      setAccessToken(response.accessToken);
+      setUser(response.user);
+      setMessage(t('loginComplete'));
+    } catch (mockError) {
+      setError(errorMessage(mockError, t));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleRepositorySubmit(githubRepoId: string) {
@@ -421,7 +456,13 @@ export function App() {
       {error ? <div className="error">{error}</div> : null}
 
       {!accessToken ? (
-        <LoginPanel loading={loading} t={t} onLogin={handleLogin} />
+        <LoginPanel
+          loading={loading}
+          mockUsers={mockUsers}
+          t={t}
+          onLogin={handleLogin}
+          onMockLogin={handleMockLogin}
+        />
       ) : (
         <section className="workspace">
           <aside className="side-panel">
@@ -474,12 +515,16 @@ export function App() {
 
 function LoginPanel({
   loading,
+  mockUsers,
   t,
   onLogin,
+  onMockLogin,
 }: {
   loading: boolean;
+  mockUsers: MockUser[];
   t: Translator;
   onLogin: () => void;
+  onMockLogin: (login: string) => void;
 }) {
   return (
     <section className="login-layout onboarding-layout">
@@ -505,6 +550,26 @@ function LoginPanel({
           {loading ? <Loader2 className="spin" size={18} /> : <Github size={18} />}
           {t('continue')}
         </button>
+        {mockUsers.length > 0 ? (
+          <div className="mock-login-panel">
+            <strong>{t('mockLogin')}</strong>
+            <div>
+              {mockUsers.map((mockUser) => (
+                <button
+                  className="inline-button"
+                  disabled={loading}
+                  key={mockUser.githubLogin}
+                  onClick={() => onMockLogin(mockUser.githubLogin)}
+                  type="button"
+                >
+                  {mockUser.avatarUrl ? <img src={mockUser.avatarUrl} alt="" /> : null}
+                  {mockUser.githubLogin}
+                  {mockUser.isAdmin ? <Shield size={13} /> : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </section>
     </section>
   );
