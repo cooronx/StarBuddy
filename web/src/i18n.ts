@@ -63,8 +63,6 @@ type TranslationKey =
   | 'recentStargazers'
   | 'resumePromotion'
   | 'signOut'
-  | 'skip'
-  | 'skippedLoading'
   | 'suspendReporter'
   | 'starCompletedRewarded'
   | 'starBuddyStars'
@@ -147,8 +145,6 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     recentStargazers: 'Recent stargazers',
     resumePromotion: 'Resume',
     signOut: 'Sign out',
-    skip: 'Skip',
-    skippedLoading: 'Skipped. Loading another project.',
     suspendReporter: 'Suspend reporter',
     starCompletedRewarded: 'Starred {repository}. You earned 1 credit.',
     starBuddyStars: '{count} StarBuddy stars',
@@ -227,8 +223,6 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     recentStargazers: '最近点 Star 的用户',
     resumePromotion: '恢复',
     signOut: '退出登录',
-    skip: '跳过',
-    skippedLoading: '已跳过，正在加载下一个项目。',
     suspendReporter: '暂停举报者账号',
     starCompletedRewarded: '已 Star {repository}，你获得了 1 积分。',
     starBuddyStars: 'StarBuddy 收获 {count} 个 Star',
@@ -262,7 +256,6 @@ const statusLabels: Record<Language, Record<string, string>> = {
     cancelled_insufficient_credits: 'Cancelled: insufficient credits',
     cancelled_daily_limit: 'Cancelled: daily limit reached',
     cancelled_repository_unavailable: 'Cancelled: repository unavailable',
-    skipped: 'Skipped',
     expired: 'Expired',
     already_starred_no_reward: 'Already starred',
     already_completed: 'Already completed',
@@ -288,7 +281,6 @@ const statusLabels: Record<Language, Record<string, string>> = {
     cancelled_insufficient_credits: '已取消：积分不足',
     cancelled_daily_limit: '已取消：达到今日上限',
     cancelled_repository_unavailable: '已取消：仓库不可用',
-    skipped: '已跳过',
     expired: '已过期',
     already_starred_no_reward: '已 Star',
     already_completed: '已结算',

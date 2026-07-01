@@ -25,6 +25,8 @@ const REPOSITORY_DAILY_REWARDED_LIMIT = 30;
 interface CandidateTask {
   id: string;
   repository_id: string;
+  owner_user_id: string;
+  reward_credits: number;
 }
 
 interface LockedClaim {
@@ -39,8 +41,8 @@ type TaskBlockStatus =
   | 'daily_user_limit_reached';
 
 type SettleResult =
-  | { credited: true; status: 'completed_rewarded' }
-  | { credited: false; status: string };
+  | { credited: true; status: 'completed_rewarded'; actorCreditDelta: number }
+  | { credited: false; status: string; actorCreditDelta?: number };
 
 @Injectable()
 export class StarTasksService {
@@ -112,32 +114,6 @@ export class StarTasksService {
     }
 
     return this.performClaim(userId, claimId);
-  }
-
-  async skipClaim(userId: string, claimId: string) {
-    await this.authService.assertUserActive(userId);
-
-    const claim = await this.prisma.taskClaim.findUnique({
-      where: { id: claimId },
-    });
-
-    if (!claim || claim.userId !== userId) {
-      throw new NotFoundException('Claim not found');
-    }
-
-    if (claim.status !== TaskClaimStatus.claimed) {
-      return { status: claim.status };
-    }
-
-    await this.prisma.taskClaim.update({
-      where: { id: claimId },
-      data: {
-        status: TaskClaimStatus.skipped,
-        completedAt: new Date(),
-      },
-    });
-
-    return { status: 'skipped' };
   }
 
   private async performClaim(userId: string, claimId: string) {
@@ -243,7 +219,7 @@ export class StarTasksService {
         status: 'completed_unrewarded_insufficient_credits',
         repository: `${repository.githubOwner}/${repository.githubRepo}`,
         claimId,
-        actorCreditDelta: 0,
+        actorCreditDelta: settled.actorCreditDelta ?? 0,
         ownerCreditDelta: 0,
       };
     }
@@ -272,7 +248,7 @@ export class StarTasksService {
       status: 'completed_rewarded',
       repository: `${repository.githubOwner}/${repository.githubRepo}`,
       claimId,
-      actorCreditDelta: 1,
+      actorCreditDelta: settled.actorCreditDelta,
       ownerCreditDelta: -1,
     };
   }
@@ -282,10 +258,23 @@ export class StarTasksService {
 
     return this.prisma.$transaction(async (tx) => {
       const candidates = await tx.$queryRaw<CandidateTask[]>`
-        select st.id, st.repository_id
+        select
+          st.id,
+          st.repository_id,
+          r.owner_user_id,
+          st.reward_credits
         from star_tasks st
         join repositories r on r.id = st.repository_id
         join users owner on owner.id = r.owner_user_id
+        left join lateral (
+          select coalesce(sum(reserved_task.reward_credits), 0)::int as reserved_credits
+          from task_claims reserved_claim
+          join star_tasks reserved_task on reserved_task.id = reserved_claim.task_id
+          join repositories reserved_repository on reserved_repository.id = reserved_claim.repository_id
+          where reserved_repository.owner_user_id = owner.id
+            and reserved_claim.status = 'claimed'
+            and reserved_claim.expires_at > now()
+        ) reservations on true
         left join lateral (
           select
             count(*) filter (
@@ -306,7 +295,7 @@ export class StarTasksService {
           and r.status = 'active'
           and owner.status = 'active'
           and r.owner_user_id <> ${userId}
-          and owner.credits_balance > 0
+          and owner.credits_balance - reservations.reserved_credits >= st.reward_credits
           and metrics.rewarded_star_count_today < ${REPOSITORY_DAILY_REWARDED_LIMIT}
           and not exists (
             select 1
@@ -332,6 +321,26 @@ export class StarTasksService {
 
       const candidate = candidates[0];
       if (!candidate) {
+        return null;
+      }
+
+      await tx.$queryRaw`
+        select id
+        from users
+        where id = ${candidate.owner_user_id}
+        for update
+      `;
+
+      const reservedCredits = await getReservedCreditsForOwner(
+        tx,
+        candidate.owner_user_id,
+      );
+      const owner = await tx.user.findUniqueOrThrow({
+        where: { id: candidate.owner_user_id },
+        select: { creditsBalance: true },
+      });
+
+      if (owner.creditsBalance - reservedCredits < candidate.reward_credits) {
         return null;
       }
 
@@ -495,19 +504,24 @@ export class StarTasksService {
       });
 
       if (ownerCharged.count !== 1) {
-        await this.recordUnrewardedForInsufficientCredits(
-          tx,
-          claimId,
-          actorUserId,
-          repository,
-        );
-        return { credited: false, status: 'cancelled_insufficient_credits' };
+        const actorCreditDelta =
+          await this.recordUnrewardedForInsufficientCredits(
+            tx,
+            claimId,
+            actorUserId,
+            repository,
+          );
+        return {
+          credited: false,
+          status: 'cancelled_insufficient_credits',
+          actorCreditDelta,
+        };
       }
 
-      await tx.user.update({
-        where: { id: actorUserId },
-        data: { creditsBalance: { increment: 1 } },
-      });
+      const actorCreditDelta = await this.issueContributionReward(
+        tx,
+        actorUserId,
+      );
 
       const claim = await tx.taskClaim.findUniqueOrThrow({
         where: { id: claimId },
@@ -527,13 +541,17 @@ export class StarTasksService {
 
       await tx.creditLedger.createMany({
         data: [
-          {
-            userId: actorUserId,
-            amount: 1,
-            reason: CreditReason.star_completed_reward,
-            relatedEntityType: 'star_action',
-            relatedEntityId: action.id,
-          },
+          ...(actorCreditDelta > 0
+            ? [
+                {
+                  userId: actorUserId,
+                  amount: actorCreditDelta,
+                  reason: CreditReason.star_completed_reward,
+                  relatedEntityType: 'star_action',
+                  relatedEntityId: action.id,
+                },
+              ]
+            : []),
           {
             userId: repository.ownerUserId,
             amount: -1,
@@ -552,8 +570,44 @@ export class StarTasksService {
         },
       });
 
-      return { credited: true, status: 'completed_rewarded' };
+      return {
+        credited: true,
+        status: 'completed_rewarded',
+        actorCreditDelta,
+      };
     });
+  }
+
+  private async issueContributionReward(
+    tx: Prisma.TransactionClient,
+    actorUserId: string,
+    excludingStarActionId?: string,
+  ) {
+    const previousEffectiveContributions = await tx.starAction.count({
+      where: {
+        id: excludingStarActionId ? { not: excludingStarActionId } : undefined,
+        actorUserId,
+        status: {
+          in: [
+            StarActionStatus.completed_rewarded,
+            StarActionStatus.completed_unrewarded_insufficient_credits,
+          ],
+        },
+      },
+    });
+    const nextEffectiveContribution = previousEffectiveContributions + 1;
+    const rewardCredits = contributionRewardForEffectiveContribution(
+      nextEffectiveContribution,
+    );
+
+    if (rewardCredits > 0) {
+      await tx.user.update({
+        where: { id: actorUserId },
+        data: { creditsBalance: { increment: rewardCredits } },
+      });
+    }
+
+    return rewardCredits;
   }
 
   private async checkClaimAvailability(
@@ -597,7 +651,12 @@ export class StarTasksService {
       return 'cancelled_repository_unavailable';
     }
 
-    if (owner.creditsBalance < 1) {
+    const reservedCredits = await getReservedCreditsForOwner(
+      this.prisma,
+      ownerUserId,
+      claimId,
+    );
+    if (owner.creditsBalance - reservedCredits < 1) {
       await this.markClaimCancelled(
         claimId,
         TaskClaimStatus.cancelled_insufficient_credits,
@@ -721,7 +780,7 @@ export class StarTasksService {
       where: { id: claimId },
     });
 
-    await tx.starAction.upsert({
+    const action = await tx.starAction.upsert({
       where: {
         actorUserId_repositoryId: {
           actorUserId,
@@ -740,6 +799,23 @@ export class StarTasksService {
       update: {},
     });
 
+    const actorCreditDelta = await this.issueContributionReward(
+      tx,
+      actorUserId,
+      action.id,
+    );
+    if (actorCreditDelta > 0) {
+      await tx.creditLedger.create({
+        data: {
+          userId: actorUserId,
+          amount: actorCreditDelta,
+          reason: CreditReason.star_completed_reward,
+          relatedEntityType: 'star_action',
+          relatedEntityId: action.id,
+        },
+      });
+    }
+
     await tx.taskClaim.update({
       where: { id: claimId },
       data: {
@@ -747,6 +823,8 @@ export class StarTasksService {
         completedAt: new Date(),
       },
     });
+
+    return actorCreditDelta;
   }
 }
 
@@ -775,6 +853,33 @@ function serverLocalDayRange(now = new Date()) {
   );
 
   return { start, end };
+}
+
+function contributionRewardForEffectiveContribution(contributionCount: number) {
+  if (contributionCount <= 5) {
+    return 1;
+  }
+
+  return (contributionCount - 5) % 2 === 0 ? 1 : 0;
+}
+
+async function getReservedCreditsForOwner(
+  tx: Prisma.TransactionClient | PrismaService,
+  ownerUserId: string,
+  excludingClaimId?: string,
+) {
+  const rows = await tx.$queryRaw<{ reserved_credits: number }[]>`
+    select coalesce(sum(st.reward_credits), 0)::int as reserved_credits
+    from task_claims tc
+    join star_tasks st on st.id = tc.task_id
+    join repositories r on r.id = tc.repository_id
+    where r.owner_user_id = ${ownerUserId}
+      and tc.status = 'claimed'
+      and tc.expires_at > now()
+      and (${excludingClaimId ?? null}::text is null or tc.id <> ${excludingClaimId ?? null})
+  `;
+
+  return rows[0]?.reserved_credits ?? 0;
 }
 
 function serializeCurrentClaim(claim: {

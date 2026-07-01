@@ -10,8 +10,13 @@ export class CreditsService {
       where: { id: userId },
       select: { creditsBalance: true },
     });
+    const reservedCredits = await this.getReservedCredits(userId);
 
-    return { creditsBalance: user.creditsBalance };
+    return {
+      creditsBalance: user.creditsBalance,
+      reservedCredits,
+      availableCredits: user.creditsBalance - reservedCredits,
+    };
   }
 
   async getLedger(userId: string) {
@@ -29,5 +34,19 @@ export class CreditsService {
       relatedEntityId: entry.relatedEntityId,
       createdAt: entry.createdAt,
     }));
+  }
+
+  private async getReservedCredits(userId: string) {
+    const rows = await this.prisma.$queryRaw<{ reserved_credits: number }[]>`
+      select coalesce(sum(st.reward_credits), 0)::int as reserved_credits
+      from task_claims tc
+      join star_tasks st on st.id = tc.task_id
+      join repositories r on r.id = tc.repository_id
+      where r.owner_user_id = ${userId}
+        and tc.status = 'claimed'
+        and tc.expires_at > now()
+    `;
+
+    return rows[0]?.reserved_credits ?? 0;
   }
 }

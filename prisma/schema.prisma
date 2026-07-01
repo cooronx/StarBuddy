@@ -41,7 +41,6 @@ enum TaskClaimStatus {
   cancelled_insufficient_credits
   cancelled_daily_limit
   cancelled_repository_unavailable
-  skipped
   expired
 }
 

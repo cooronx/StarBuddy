@@ -260,7 +260,6 @@ src/
 - `POST /star-tasks/execute-next`：自动领取并执行一个可用 star 任务。
 - `GET /star-tasks/current`：领取或返回当前推荐项目 claim，不执行 star。
 - `POST /star-tasks/:claimId/star`：对指定 claim 执行 GitHub star 并结算。
-- `POST /star-tasks/:claimId/skip`：跳过指定 claim。
 - `GET /credits/balance`：查询当前积分余额。
 - `GET /credits/ledger`：查询积分流水。
 
@@ -275,7 +274,6 @@ src/
 - 登录后显示 GitHub 用户和 credits。
 - 主卡片展示当前推荐项目。
 - 点击 `Star this project` 后调用 `POST /star-tasks/:claimId/star`。
-- 点击 `Skip` 后调用 `POST /star-tasks/:claimId/skip` 并加载下一个项目。
 - 左侧可提交自己的仓库。
 - 右侧显示积分余额和最近流水。
 

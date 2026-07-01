@@ -41,7 +41,6 @@ export class MaintenanceService implements OnModuleInit {
             status: {
               in: [
                 TaskClaimStatus.expired,
-                TaskClaimStatus.skipped,
                 TaskClaimStatus.failed,
                 TaskClaimStatus.cancelled_daily_limit,
                 TaskClaimStatus.cancelled_repository_unavailable,

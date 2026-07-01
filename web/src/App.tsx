@@ -15,7 +15,6 @@ import {
   Star,
   Trash2,
   WalletCards,
-  X,
 } from 'lucide-react';
 import {
   AdminSystemStatus,
@@ -227,22 +226,6 @@ export function App() {
       await refresh();
     } catch (starError) {
       setError(errorMessage(starError, t));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSkip(claimId: string) {
-    setLoading(true);
-    setError('');
-    setMessage('');
-    try {
-      await api.skipClaim(claimId);
-      setMessage(t('skippedLoading'));
-      const task = await api.getCurrentTask();
-      setCurrentTask(task);
-    } catch (skipError) {
-      setError(errorMessage(skipError, t));
     } finally {
       setLoading(false);
     }
@@ -488,7 +471,6 @@ export function App() {
               onInitialLoad={refresh}
               onReport={handleReportRepository}
               onStar={handleStar}
-              onSkip={handleSkip}
             />
           </section>
 
@@ -809,7 +791,6 @@ function TaskCard({
   onInitialLoad,
   onReport,
   onStar,
-  onSkip,
 }: {
   language: Language;
   task: CurrentTask | EmptyTask | null;
@@ -818,7 +799,6 @@ function TaskCard({
   onInitialLoad: () => void;
   onReport: (repositoryId: string) => void;
   onStar: (claimId: string) => void;
-  onSkip: (claimId: string) => void;
 }) {
   if (!task) {
     return (
@@ -908,14 +888,6 @@ function TaskCard({
         </div>
       </div>
       <div className="card-actions">
-        <button
-          className="ghost-action"
-          disabled={loading}
-          onClick={() => onSkip(task.claimId)}
-        >
-          <X size={18} />
-          {t('skip')}
-        </button>
         <button
           className="ghost-action"
           disabled={loading}

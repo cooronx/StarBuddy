@@ -53,11 +53,12 @@ _Avoid_: Job, campaign
 
 **Fair Task Rotation**:
 The task distribution rule that gives each eligible user-owned promotion slot a fair chance to receive star actions instead of favoring older repositories.
-Fairness is measured by rewarded star actions received by the active promoted repository, not by impressions, claims, skips, expirations, or failed actions.
+Fairness is measured by rewarded star actions received by the active promoted repository, not by impressions, claims, expirations, or failed actions.
 _Avoid_: FIFO queue, oldest repository first
 
 **Task Claim**:
-A temporary reservation of a star task by a user before they complete, skip, or let it expire.
+A temporary reservation of a star task by a user before they complete it or let it expire.
+Claiming a task also reserves one unit of the owner's reward budget for that specific task attempt.
 _Avoid_: Assignment, lock
 
 **Star Action**:
@@ -65,10 +66,33 @@ A recorded attempt by a user to star a promoted repository, whether rewarded or 
 _Avoid_: Like, vote
 
 **Credit**:
-The internal unit spent by promoted repository owners and earned by users who complete rewarded star actions.
+The internal promotion budget spent by promoted repository owners to buy rewarded star actions at a one-credit-per-rewarded-star rate.
+Users earn credits from signup bonus and effective contributions according to the contribution reward schedule.
 _Avoid_: Point, token
 
+**Credit Loop**:
+The closed exchange where users earn credits by making effective contributions and spend credits by keeping their own promoted repositories eligible for future rewarded star actions.
+_Avoid_: Wallet system, payout loop
+
+**Contribution Reward Schedule**:
+The credit issuance rule tied to user onboarding and effective contributions: a new user receives five credits at signup, each of the first five effective contributions grants one credit immediately, and after that every two effective contributions grant one credit.
+_Avoid_: Signup bonus, flat reward rate
+
+**Effective Contribution**:
+A star contribution that GitHub verification confirms as newly completed by the user, whether or not the repository owner had enough credits to reward it.
+It excludes expired, failed, and already-starred/no-reward outcomes.
+_Avoid_: Any completed claim, historical star
+
+**Contribution History**:
+The user-global running count of effective contributions across their whole account history.
+It is not scoped per repository and does not reset each day.
+_Avoid_: Daily quota, repository counter
+
 **Eligible Promotion**:
-An active promoted repository whose owner has enough credits to pay for a rewarded star action.
-Eligibility returns automatically when the owner earns enough credits again.
+An active promoted repository whose owner has enough available credits to reserve reward budget for a new task claim.
+Eligibility returns automatically when the owner earns enough credits again or when reserved budget is released.
 _Avoid_: Available repository when eligibility depends on credits
+
+**Reserved Credit**:
+Owner credit that has been locked by an active task claim and is therefore unavailable for new task claims until the claim is completed, failed, or expired.
+_Avoid_: Spent credit, pending reward

@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/types';
@@ -47,14 +54,6 @@ export class StarTasksController {
     });
 
     return this.starTasksService.starClaim(user.userId, claimId);
-  }
-
-  @Post(':claimId/skip')
-  skipClaim(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('claimId') claimId: string,
-  ) {
-    return this.starTasksService.skipClaim(user.userId, claimId);
   }
 
   private consumeTaskClaimRateLimit(

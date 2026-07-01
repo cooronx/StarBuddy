@@ -188,12 +188,6 @@ export class ApiClient {
     });
   }
 
-  skipClaim(claimId: string) {
-    return this.request<TaskResult>(`/star-tasks/${claimId}/skip`, {
-      method: 'POST',
-    });
-  }
-
   createRepositoryFromGithub(githubRepoId: string) {
     return this.request<Repository>(`/repositories/github/${githubRepoId}`, {
       method: 'POST',
@@ -281,7 +275,11 @@ export class ApiClient {
   }
 
   getCreditsBalance() {
-    return this.request<{ creditsBalance: number }>('/credits/balance');
+    return this.request<{
+      creditsBalance: number;
+      reservedCredits: number;
+      availableCredits: number;
+    }>('/credits/balance');
   }
 
   getLedger() {
