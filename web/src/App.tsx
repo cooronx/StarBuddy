@@ -84,6 +84,13 @@ export function App() {
       translate(language, key, values),
     [language],
   );
+  const activePromotion = useMemo(
+    () =>
+      repositories.find(
+        (repository) => repository.submittedRepository?.status === 'active',
+      ) ?? null,
+    [repositories],
+  );
 
   const refresh = useCallback(async () => {
     if (!accessToken) {
@@ -373,6 +380,7 @@ export function App() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Topbar
+          activePromotion={activePromotion}
           language={language}
           loading={loading}
           user={user}
@@ -614,6 +622,7 @@ function Sidebar({
 }
 
 function Topbar({
+  activePromotion,
   language,
   loading,
   user,
@@ -622,6 +631,7 @@ function Topbar({
   onLogout,
   onRefresh,
 }: {
+  activePromotion: GithubRepository | null;
   language: Language;
   loading: boolean;
   user: User | null;
@@ -638,10 +648,14 @@ function Topbar({
         </div>
         <strong className="text-lg text-primary">StarBuddy</strong>
       </div>
-      <div className="hidden md:block">
+      <div className="hidden min-w-0 items-center gap-3 md:flex">
         <p className="label-caps text-on-surface-variant">
           {label(language, 'Collaborative Growth Engine', '协作增长引擎')}
         </p>
+        <ActivePromotionPill
+          language={language}
+          repository={activePromotion}
+        />
       </div>
       <div className="flex min-w-0 items-center gap-2 md:gap-3">
         <div className="hidden items-center gap-2 rounded-full border border-outline-variant bg-surface-container-high px-3 py-1.5 sm:flex">
@@ -668,6 +682,30 @@ function Topbar({
         </button>
       </div>
     </header>
+  );
+}
+
+function ActivePromotionPill({
+  language,
+  repository,
+}: {
+  language: Language;
+  repository: GithubRepository | null;
+}) {
+  if (!repository?.submittedRepository) {
+    return null;
+  }
+
+  return (
+    <div className="hidden min-w-0 max-w-[280px] items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-high px-3 py-1.5 shadow-ring lg:flex">
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+      <span className="label-caps shrink-0 text-on-surface-variant">
+        {label(language, 'Promoting', '推广中')}
+      </span>
+      <span className="mono min-w-0 truncate text-on-surface">
+        {repository.githubOwner}/{repository.githubRepo}
+      </span>
+    </div>
   );
 }
 
