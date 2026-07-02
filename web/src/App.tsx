@@ -1,23 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
-  Archive,
-  Ban,
+  BadgeCheck,
+  BookOpen,
+  Clock3,
   Flag,
   Github,
+  History,
+  Languages,
+  LayoutDashboard,
   Loader2,
+  LogOut,
   Pause,
   Play,
   Plus,
   RefreshCw,
-  RotateCcw,
+  Search,
   Shield,
   Star,
-  Trash2,
+  Terminal,
   WalletCards,
 } from 'lucide-react';
 import {
-  AdminSystemStatus,
   API_BASE_URL,
   ApiClient,
   CreditLedgerEntry,
@@ -26,7 +30,6 @@ import {
   GithubRepository,
   MockUser,
   PromotionSwitchStatus,
-  RepositoryReport,
   TaskResult,
   User,
 } from './api';
@@ -41,8 +44,22 @@ import {
 
 const ACCESS_TOKEN_KEY = 'starbuddy_access_token';
 
+type View = 'dashboard' | 'tasks' | 'repositories' | 'history';
+
+const views: Array<{
+  id: View;
+  icon: typeof LayoutDashboard;
+  label: Record<Language, string>;
+}> = [
+  { id: 'dashboard', icon: LayoutDashboard, label: { en: 'Dashboard', zh: '仪表盘' } },
+  { id: 'tasks', icon: Star, label: { en: 'Tasks', zh: '任务' } },
+  { id: 'repositories', icon: Terminal, label: { en: 'Repositories', zh: '仓库' } },
+  { id: 'history', icon: History, label: { en: 'History', zh: '历史' } },
+];
+
 export function App() {
   const [language, setLanguage] = useState<Language>(() => getInitialLanguage());
+  const [activeView, setActiveView] = useState<View>(() => readHashView());
   const [accessToken, setAccessToken] = useState<string | null>(() =>
     localStorage.getItem(ACCESS_TOKEN_KEY),
   );
@@ -54,11 +71,9 @@ export function App() {
   const [repositories, setRepositories] = useState<GithubRepository[]>([]);
   const [promotionSwitch, setPromotionSwitch] =
     useState<PromotionSwitchStatus | null>(null);
-  const [adminSystem, setAdminSystem] = useState<AdminSystemStatus | null>(null);
-  const [adminReports, setAdminReports] = useState<RepositoryReport[]>([]);
   const [mockUsers, setMockUsers] = useState<MockUser[]>([]);
-  const [message, setMessage] = useState<string>('');
-  const [error, setError] = useState<string>('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const api = useMemo(() => new ApiClient(() => accessToken), [accessToken]);
@@ -88,30 +103,25 @@ export function App() {
       setLedger(history);
       setRepositories(mine.repositories);
       setPromotionSwitch(mine.promotionSwitch);
-
-      if (me.isAdmin) {
-        const [system, reports] = await Promise.all([
-          api.getAdminSystem(),
-          api.listAdminReports(),
-        ]);
-        setAdminSystem(system);
-        setAdminReports(reports);
-      } else {
-        setAdminSystem(null);
-        setAdminReports([]);
-      }
     } catch (refreshError) {
-      setError(
-        errorMessage(refreshError, (key) => translate(getInitialLanguage(), key)),
-      );
+      setError(errorMessage(refreshError, t));
     } finally {
       setLoading(false);
     }
-  }, [accessToken, api]);
+  }, [accessToken, api, t]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    function handleHashChange() {
+      setActiveView(readHashView());
+    }
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     if (accessToken) {
@@ -172,6 +182,11 @@ export function App() {
         setLoading(false);
       });
   }, [api, t]);
+
+  function setView(view: View) {
+    setActiveView(view);
+    window.history.replaceState({}, '', `#${view}`);
+  }
 
   function handleLogin() {
     setLoading(true);
@@ -308,65 +323,6 @@ export function App() {
     }
   }
 
-  async function handleAdminRepositoryAction(
-    repositoryId: string,
-    action: 'archive' | 'reject' | 'restore',
-  ) {
-    setLoading(true);
-    setError('');
-    setMessage('');
-    try {
-      if (action === 'archive') {
-        await api.adminArchiveRepository(repositoryId);
-      } else if (action === 'reject') {
-        await api.adminRejectRepository(repositoryId);
-      } else {
-        await api.adminRestoreRepository(repositoryId);
-      }
-      await refresh();
-    } catch (adminError) {
-      setError(errorMessage(adminError, t));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSuspendUser(userId: string) {
-    setLoading(true);
-    setError('');
-    setMessage('');
-    try {
-      await api.adminSuspendUser(userId);
-      await refresh();
-    } catch (adminError) {
-      setError(errorMessage(adminError, t));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleAdminCleanup() {
-    setLoading(true);
-    setError('');
-    setMessage('');
-    try {
-      const result = await api.adminCleanup();
-      setMessage(
-        t('adminCleanupComplete', {
-          oauthLoginCodes: result.oauthLoginCodes,
-          rateLimitEvents: result.rateLimitEvents,
-          taskClaims: result.taskClaims,
-          repositoryReports: result.repositoryReports,
-        }),
-      );
-      await refresh();
-    } catch (adminError) {
-      setError(errorMessage(adminError, t));
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function handleLogout() {
     clearSessionState();
     setMessage('');
@@ -381,8 +337,6 @@ export function App() {
     setLedger([]);
     setRepositories([]);
     setPromotionSwitch(null);
-    setAdminSystem(null);
-    setAdminReports([]);
   }
 
   function handleLanguageChange(nextLanguage: Language) {
@@ -390,174 +344,535 @@ export function App() {
     setLanguage(nextLanguage);
   }
 
+  if (!accessToken) {
+    return (
+      <LoginScreen
+        error={error}
+        language={language}
+        loading={loading}
+        message={message}
+        mockUsers={mockUsers}
+        t={t}
+        onLanguageChange={handleLanguageChange}
+        onLogin={handleLogin}
+        onMockLogin={handleMockLogin}
+      />
+    );
+  }
+
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">
-            <Star size={20} />
-          </div>
-          <div>
-            <h1>StarBuddy</h1>
-            <p>{t('tagline')}</p>
-          </div>
-        </div>
+    <div className="flex min-h-screen bg-background text-on-background">
+      <Sidebar
+        activeView={activeView}
+        language={language}
+        onNewPromotion={() => setView('repositories')}
+        onViewChange={setView}
+      />
 
-        {user ? (
-          <div className="profile">
-            {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : null}
-            <div>
-              <strong>{user.githubLogin}</strong>
-              <span>
-                {user.creditsBalance} {t('credits').toLowerCase()}
-              </span>
-            </div>
-            <LanguageSwitcher
-              language={language}
-              onChange={handleLanguageChange}
-              t={t}
-            />
-            <button className="icon-button" onClick={refresh} title={t('refresh')}>
-              {loading ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
-            </button>
-            <button className="ghost-button" onClick={handleLogout}>
-              {t('signOut')}
-            </button>
-          </div>
-        ) : (
-          <div className="topbar-actions">
-            <LanguageSwitcher
-              language={language}
-              onChange={handleLanguageChange}
-              t={t}
-            />
-          </div>
-        )}
-      </header>
-
-      {message ? <div className="notice">{message}</div> : null}
-      {error ? <div className="error">{error}</div> : null}
-
-      {!accessToken ? (
-        <LoginPanel
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Topbar
+          language={language}
           loading={loading}
-          mockUsers={mockUsers}
+          user={user}
           t={t}
-          onLogin={handleLogin}
-          onMockLogin={handleMockLogin}
+          onLanguageChange={handleLanguageChange}
+          onLogout={handleLogout}
+          onRefresh={refresh}
         />
-      ) : (
-        <section className="workspace">
-          <aside className="side-panel">
-            <RepositoryList
-              language={language}
-              loading={loading}
-              promotionSwitch={promotionSwitch}
-              repositories={repositories}
-              t={t}
-              onActivate={handleActivateRepository}
-              onPause={handlePauseRepository}
-              onResume={handleResumeRepository}
-              onSubmit={handleRepositorySubmit}
-            />
-          </aside>
 
-          <section className="main-panel">
-            <TaskCard
+        <main className="flex-1 overflow-y-auto bg-surface-container-lowest px-4 py-6 md:px-6 lg:px-10">
+          <div className="mx-auto max-w-container-max space-y-5">
+            <MobileNav
+              activeView={activeView}
               language={language}
-              task={currentTask}
-              loading={loading}
-              t={t}
-              onInitialLoad={refresh}
-              onReport={handleReportRepository}
-              onStar={handleStar}
+              onViewChange={setView}
             />
-          </section>
-
-          <aside className="side-panel">
-            <CreditPanel language={language} user={user} ledger={ledger} t={t} />
-            {user?.isAdmin ? (
-              <AdminPanel
+            <FlashMessages error={error} message={message} />
+            {activeView === 'dashboard' ? (
+              <DashboardView
                 language={language}
+                ledger={ledger}
                 loading={loading}
-                reports={adminReports}
-                system={adminSystem}
+                repositories={repositories}
+                task={currentTask}
                 t={t}
-                onCleanup={handleAdminCleanup}
-                onRepositoryAction={handleAdminRepositoryAction}
-                onSuspendUser={handleSuspendUser}
+                user={user}
+                onGoRepositories={() => setView('repositories')}
+                onGoTasks={() => setView('tasks')}
+                onRefresh={refresh}
               />
             ) : null}
-          </aside>
-        </section>
-      )}
-    </main>
+            {activeView === 'tasks' ? (
+              <TasksView
+                language={language}
+                loading={loading}
+                task={currentTask}
+                t={t}
+                user={user}
+                onRefresh={refresh}
+                onReport={handleReportRepository}
+                onStar={handleStar}
+              />
+            ) : null}
+            {activeView === 'repositories' ? (
+              <RepositoriesView
+                language={language}
+                loading={loading}
+                promotionSwitch={promotionSwitch}
+                repositories={repositories}
+                t={t}
+                onActivate={handleActivateRepository}
+                onPause={handlePauseRepository}
+                onResume={handleResumeRepository}
+                onSubmit={handleRepositorySubmit}
+              />
+            ) : null}
+            {activeView === 'history' ? (
+              <HistoryView language={language} ledger={ledger} t={t} user={user} />
+            ) : null}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }
 
-function LoginPanel({
+function LoginScreen({
+  error,
+  language,
   loading,
+  message,
   mockUsers,
   t,
+  onLanguageChange,
   onLogin,
   onMockLogin,
 }: {
+  error: string;
+  language: Language;
   loading: boolean;
+  message: string;
   mockUsers: MockUser[];
   t: Translator;
+  onLanguageChange: (language: Language) => void;
   onLogin: () => void;
   onMockLogin: (login: string) => void;
 }) {
   return (
-    <section className="login-layout onboarding-layout">
-      <section className="onboarding-copy">
-        <span className="eyebrow">StarBuddy</span>
-        <h2>{t('introHeadline')}</h2>
-        <p>{t('introCopy')}</p>
-        <div className="permission-list">
-          <span>{t('permissionProfile')}</span>
-          <span>{t('permissionRepositories')}</span>
-          <span>{t('permissionStar')}</span>
-        </div>
-      </section>
-      <section className="login-panel">
-        <div className="panel-heading">
-          <Github size={22} />
-          <div>
-            <h2>{t('continueWithGithub')}</h2>
-            <p>{t('githubOAuthHelp')}</p>
-          </div>
-        </div>
-        <button className="primary-button" disabled={loading} onClick={onLogin}>
-          {loading ? <Loader2 className="spin" size={18} /> : <Github size={18} />}
-          {t('continue')}
-        </button>
-        {mockUsers.length > 0 ? (
-          <div className="mock-login-panel">
-            <strong>{t('mockLogin')}</strong>
+    <main className="min-h-screen bg-background px-4 py-6 text-on-background md:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-48px)] max-w-6xl flex-col">
+        <header className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-low text-secondary credit-loop">
+              <Star size={20} fill="currentColor" />
+            </div>
             <div>
-              {mockUsers.map((mockUser) => (
-                <button
-                  className="inline-button"
-                  disabled={loading}
-                  key={mockUser.githubLogin}
-                  onClick={() => onMockLogin(mockUser.githubLogin)}
-                  type="button"
-                >
-                  {mockUser.avatarUrl ? <img src={mockUser.avatarUrl} alt="" /> : null}
-                  {mockUser.githubLogin}
-                  {mockUser.isAdmin ? <Shield size={13} /> : null}
-                </button>
-              ))}
+              <h1 className="text-xl font-semibold text-on-surface">StarBuddy</h1>
+              <p className="label-caps text-on-surface-variant">
+                Star Coordination
+              </p>
             </div>
           </div>
-        ) : null}
+          <LanguageSwitcher
+            language={language}
+            t={t}
+            onChange={onLanguageChange}
+          />
+        </header>
+
+        <section className="grid flex-1 items-center gap-8 py-10 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="max-w-2xl space-y-6">
+            <span className="status-badge border-primary/30 bg-primary/10 text-primary">
+              Developer-first growth loop
+            </span>
+            <div className="space-y-4">
+              <h2 className="max-w-3xl text-4xl font-semibold leading-tight tracking-tight text-on-surface md:text-6xl">
+                {t('introHeadline')}
+              </h2>
+              <p className="max-w-2xl text-base leading-7 text-on-surface-variant md:text-lg">
+                {t('introCopy')}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[t('permissionProfile'), t('permissionRepositories'), t('permissionStar')].map(
+                (permission) => (
+                  <div className="surface-panel-low p-4" key={permission}>
+                    <BadgeCheck className="mb-3 text-tertiary" size={18} />
+                    <p className="text-sm text-on-surface">{permission}</p>
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+
+          <section className="surface-panel-low p-5 md:p-6">
+            <FlashMessages error={error} message={message} />
+            <div className="mb-6 flex items-start gap-3">
+              <Github className="mt-1 text-primary" size={24} />
+              <div>
+                <h2 className="text-xl font-semibold text-on-surface">
+                  {t('continueWithGithub')}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-on-surface-variant">
+                  {t('githubOAuthHelp')}
+                </p>
+              </div>
+            </div>
+            <button
+              className="primary-button w-full"
+              disabled={loading}
+              onClick={onLogin}
+              type="button"
+            >
+              {loading ? <Loader2 className="spin" size={18} /> : <Github size={18} />}
+              {t('continue')}
+            </button>
+            {mockUsers.length > 0 ? (
+              <div className="mt-6 border-t border-outline-variant pt-5">
+                <strong className="label-caps text-on-surface-variant">
+                  {t('mockLogin')}
+                </strong>
+                <div className="mt-3 grid gap-2">
+                  {mockUsers.map((mockUser) => (
+                    <button
+                      className="secondary-button justify-start"
+                      disabled={loading}
+                      key={mockUser.githubLogin}
+                      onClick={() => onMockLogin(mockUser.githubLogin)}
+                      type="button"
+                    >
+                      {mockUser.avatarUrl ? (
+                        <img
+                          alt=""
+                          className="h-6 w-6 rounded-full border border-outline-variant"
+                          src={mockUser.avatarUrl}
+                        />
+                      ) : (
+                        <Github size={18} />
+                      )}
+                      <span className="mono">@{mockUser.githubLogin}</span>
+                      {mockUser.isAdmin ? <Shield size={14} /> : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function Sidebar({
+  activeView,
+  language,
+  onNewPromotion,
+  onViewChange,
+}: {
+  activeView: View;
+  language: Language;
+  onNewPromotion: () => void;
+  onViewChange: (view: View) => void;
+}) {
+  return (
+    <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-outline-variant bg-surface-container-low p-4 md:flex">
+      <div className="mb-6 px-2">
+        <h1 className="text-2xl font-semibold text-on-surface">Developer Portal</h1>
+        <p className="label-caps mt-1 text-on-surface-variant">Star Coordination</p>
+      </div>
+      <nav className="flex-1 space-y-1">
+        {views.map((view) => {
+          const Icon = view.icon;
+          return (
+            <button
+              className={`nav-item w-full ${activeView === view.id ? 'nav-item-active' : ''}`}
+              key={view.id}
+              onClick={() => onViewChange(view.id)}
+              type="button"
+            >
+              <Icon size={20} />
+              {view.label[language]}
+            </button>
+          );
+        })}
+      </nav>
+      <button className="primary-button w-full" onClick={onNewPromotion} type="button">
+        <Plus size={18} />
+        {label(language, 'New Promotion', '新推广')}
+      </button>
+    </aside>
+  );
+}
+
+function Topbar({
+  language,
+  loading,
+  user,
+  t,
+  onLanguageChange,
+  onLogout,
+  onRefresh,
+}: {
+  language: Language;
+  loading: boolean;
+  user: User | null;
+  t: Translator;
+  onLanguageChange: (language: Language) => void;
+  onLogout: () => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <header className="flex min-h-16 items-center justify-between border-b border-outline-variant bg-background px-4 md:px-6">
+      <div className="flex items-center gap-3 md:hidden">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-low text-secondary">
+          <Star size={18} fill="currentColor" />
+        </div>
+        <strong className="text-lg text-primary">StarBuddy</strong>
+      </div>
+      <div className="hidden md:block">
+        <p className="label-caps text-on-surface-variant">
+          {label(language, 'Collaborative Growth Engine', '协作增长引擎')}
+        </p>
+      </div>
+      <div className="flex min-w-0 items-center gap-2 md:gap-3">
+        <div className="hidden items-center gap-2 rounded-full border border-outline-variant bg-surface-container-high px-3 py-1.5 sm:flex">
+          <Star className="text-secondary" size={16} fill="currentColor" />
+          <span className="mono text-on-surface">{user?.creditsBalance ?? 0} CR</span>
+        </div>
+        <LanguageSwitcher language={language} t={t} onChange={onLanguageChange} />
+        <button className="icon-button" onClick={onRefresh} title={t('refresh')}>
+          {loading ? <Loader2 className="spin" size={17} /> : <RefreshCw size={17} />}
+        </button>
+        <div className="hidden min-w-0 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container px-2 py-1.5 sm:flex">
+          {user?.avatarUrl ? (
+            <img alt="" className="h-7 w-7 rounded-full" src={user.avatarUrl} />
+          ) : (
+            <Github size={18} />
+          )}
+          <span className="mono max-w-32 truncate text-on-surface">
+            @{user?.githubLogin}
+          </span>
+        </div>
+        <button className="ghost-button" onClick={onLogout} type="button">
+          <LogOut size={16} />
+          <span className="hidden sm:inline">{t('signOut')}</span>
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function MobileNav({
+  activeView,
+  language,
+  onViewChange,
+}: {
+  activeView: View;
+  language: Language;
+  onViewChange: (view: View) => void;
+}) {
+  return (
+    <nav className="grid grid-cols-4 gap-2 md:hidden">
+      {views.map((view) => {
+        const Icon = view.icon;
+        return (
+          <button
+            className={`nav-item justify-center px-2 ${activeView === view.id ? 'nav-item-active' : ''}`}
+            key={view.id}
+            onClick={() => onViewChange(view.id)}
+            type="button"
+          >
+            <Icon size={18} />
+            <span className="sr-only">{view.label[language]}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function DashboardView({
+  language,
+  ledger,
+  loading,
+  repositories,
+  task,
+  t,
+  user,
+  onGoRepositories,
+  onGoTasks,
+  onRefresh,
+}: {
+  language: Language;
+  ledger: CreditLedgerEntry[];
+  loading: boolean;
+  repositories: GithubRepository[];
+  task: CurrentTask | EmptyTask | null;
+  t: Translator;
+  user: User | null;
+  onGoRepositories: () => void;
+  onGoTasks: () => void;
+  onRefresh: () => void;
+}) {
+  const submitted = repositories.filter((repo) => repo.submittedRepository);
+  const active = submitted.find((repo) => repo.submittedRepository?.status === 'active');
+  const earned = ledger
+    .filter((entry) => entry.amount > 0)
+    .reduce((total, entry) => total + entry.amount, 0);
+  const spent = Math.abs(
+    ledger
+      .filter((entry) => entry.amount < 0)
+      .reduce((total, entry) => total + entry.amount, 0),
+  );
+
+  return (
+    <section className="space-y-5">
+      <PageHeader
+        eyebrow={label(language, 'Overview', '总览')}
+        title={label(language, 'Credit Loop', '积分循环')}
+        description={label(
+          language,
+          'Track the exchange between tasks you complete and repositories you promote.',
+          '追踪你完成任务和推广仓库之间的积分流转。',
+        )}
+        right={
+          <div className="flex items-center gap-2 text-sm text-tertiary">
+            <span className="h-2 w-2 rounded-full bg-tertiary" />
+            {label(language, 'System Online', '系统在线')}
+          </div>
+        }
+      />
+
+      <section className="surface-panel-low relative overflow-hidden p-5 md:p-6">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-primary-container opacity-10 blur-3xl" />
+        <div className="relative grid gap-5 lg:grid-cols-3">
+          <MetricBlock
+            icon={<Star size={22} fill="currentColor" />}
+            label={t('credits')}
+            tone="text-secondary"
+            value={String(user?.creditsBalance ?? 0)}
+          />
+          <MetricBlock
+            icon={<ArrowRight size={22} />}
+            label={label(language, 'Credits earned', '已赚积分')}
+            tone="text-tertiary"
+            value={`+${earned}`}
+          />
+          <MetricBlock
+            icon={<WalletCards size={22} />}
+            label={label(language, 'Credits spent', '已消耗积分')}
+            tone="text-primary"
+            value={`-${spent}`}
+          />
+        </div>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-12">
+        <section className="surface-panel p-5 lg:col-span-7">
+          <SectionTitle
+            icon={<Star size={18} />}
+            title={label(language, 'Current Task', '当前任务')}
+          />
+          <CompactTaskSummary
+            language={language}
+            loading={loading}
+            task={task}
+            t={t}
+            onGoTasks={onGoTasks}
+            onRefresh={onRefresh}
+          />
+        </section>
+
+        <section className="surface-panel p-5 lg:col-span-5">
+          <SectionTitle
+            icon={<Terminal size={18} />}
+            title={label(language, 'Promotion Slot', '推广位')}
+          />
+          {active ? (
+            <RepositorySummaryCard language={language} repository={active} t={t} />
+          ) : (
+            <div className="rounded-lg border border-dashed border-outline-variant bg-surface-container-low p-4">
+              <p className="text-sm text-on-surface-variant">
+                {label(
+                  language,
+                  'No active repository is using the promotion slot.',
+                  '当前没有仓库占用推广位。',
+                )}
+              </p>
+              <button className="primary-button mt-4" onClick={onGoRepositories}>
+                <Plus size={16} />
+                {label(language, 'Choose Repository', '选择仓库')}
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <section className="surface-panel overflow-hidden">
+        <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-high px-4 py-3">
+          <SectionTitle
+            icon={<History size={18} />}
+            title={label(language, 'Recent Contribution History', '最近贡献记录')}
+          />
+          <span className="mono text-on-surface-variant">{ledger.length}</span>
+        </div>
+        <LedgerList language={language} ledger={ledger.slice(0, 5)} t={t} />
       </section>
     </section>
   );
 }
 
-function RepositoryList({
+function TasksView({
+  language,
+  loading,
+  task,
+  t,
+  user,
+  onRefresh,
+  onReport,
+  onStar,
+}: {
+  language: Language;
+  loading: boolean;
+  task: CurrentTask | EmptyTask | null;
+  t: Translator;
+  user: User | null;
+  onRefresh: () => void;
+  onReport: (repositoryId: string) => void;
+  onStar: (claimId: string) => void;
+}) {
+  return (
+    <section className="space-y-5">
+      <PageHeader
+        eyebrow={label(language, 'Star Tasks', 'Star 任务')}
+        title={label(language, 'Discover repositories seeking stars.', '发现正在寻求 Star 的仓库。')}
+        description={label(
+          language,
+          'Complete eligible tasks to earn credits for your own promotion slot.',
+          '完成符合条件的任务，为你自己的推广位赚取积分。',
+        )}
+        right={
+          <div className="flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-high px-3 py-1.5">
+            <Star className="text-secondary" size={16} fill="currentColor" />
+            <span className="mono text-on-surface">{user?.creditsBalance ?? 0} CR</span>
+          </div>
+        }
+      />
+      <TaskPanel
+        language={language}
+        loading={loading}
+        task={task}
+        t={t}
+        onRefresh={onRefresh}
+        onReport={onReport}
+        onStar={onStar}
+      />
+    </section>
+  );
+}
+
+function RepositoriesView({
   language,
   loading,
   promotionSwitch,
@@ -578,166 +893,753 @@ function RepositoryList({
   onResume: (repositoryId: string) => void;
   onSubmit: (githubRepoId: string) => void;
 }) {
-  const submittedCount = repositories.filter(
-    (repository) => repository.submittedRepository,
-  ).length;
+  const [query, setQuery] = useState('');
   const switchRemainingMs = usePromotionSwitchRemainingMs(promotionSwitch);
   const canSwitch =
     promotionSwitch === null ||
     promotionSwitch.canSwitch ||
     switchRemainingMs <= 0;
-  const showSwitchCountdown =
-    promotionSwitch !== null &&
-    promotionSwitch.switchUsedToday &&
-    switchRemainingMs > 0;
+  const filteredRepositories = repositories.filter((repository) =>
+    `${repository.githubOwner}/${repository.githubRepo}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  const submittedCount = repositories.filter(
+    (repository) => repository.submittedRepository,
+  ).length;
+  const activeCount = repositories.filter(
+    (repository) => repository.submittedRepository?.status === 'active',
+  ).length;
 
   return (
-    <section className="tool-panel repository-panel">
-      <div className="panel-title">
-        <Github size={18} />
-        <h2>{t('yourProjects')}</h2>
-      </div>
-      {repositories.length > 0 ? (
-        <p className="muted">
-          {t('submittedCount', {
-            submitted: submittedCount,
-            total: repositories.length,
-          })}
-        </p>
-      ) : null}
-      {showSwitchCountdown ? (
-        <p className="promotion-reset">
-          {t('switchResetCountdown', {
-            time: formatDuration(switchRemainingMs),
-          })}
-        </p>
-      ) : null}
-      <div className="compact-list repository-list">
-        {loading && repositories.length === 0 ? (
-          <div className="loading-state">
-            <Loader2 className="spin" size={20} />
-            <span>{t('loadingProjects')}</span>
+    <section className="space-y-5">
+      <PageHeader
+        eyebrow={label(language, 'Repository Management', '仓库管理')}
+        title={label(language, 'My Promoted Repositories', '我的推广仓库')}
+        description={label(
+          language,
+          'Manage the public repositories eligible for StarBuddy promotion.',
+          '管理可参与 StarBuddy 推广的公开仓库。',
+        )}
+        right={
+          <div className="surface-panel flex items-center gap-3 px-3 py-2">
+            <span className="label-caps text-on-surface-variant">
+              {label(language, 'Promotion Slot', '推广位')}
+            </span>
+            <span className="mono text-tertiary">{activeCount}/1</span>
           </div>
-        ) : repositories.length === 0 ? (
-          <p className="muted">{t('noPublicRepositories')}</p>
-        ) : (
-          <>
-            {loading ? (
-              <div className="loading-state compact-loading">
-                <Loader2 className="spin" size={18} />
-                <span>{t('refreshingProjects')}</span>
-              </div>
-            ) : null}
-            {repositories.map((repository) => {
-              const submitted = repository.submittedRepository;
-              const description =
-                submitted?.description ??
-                repository.description ??
-                t('descriptionFallback');
-              const starsCount =
-                submitted?.starsCountSnapshot ?? repository.starsCountSnapshot;
+        }
+      />
 
-              return (
-                <div className="repository-row" key={repository.githubRepoId}>
-                  <div className="repository-main">
-                    <div className="repository-heading">
-                      <strong>
-                        {repository.githubOwner}/{repository.githubRepo}
-                      </strong>
-                      <span className="repository-stars">
-                        <Star size={14} />
-                        {starsCount} {t('stars')}
-                      </span>
-                    </div>
-                    <p className="repository-description">{description}</p>
-                    <div className="repository-meta-line">
-                      {submitted ? (
-                        <span className={`status-pill status-${submitted.status}`}>
-                          {formatStatus(language, submitted.status)}
-                        </span>
-                      ) : (
-                        <span className="repository-source">GitHub</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="repository-controls">
-                    {!submitted ? (
-                      <button
-                        className="inline-button"
-                        disabled={loading}
-                        onClick={() => onSubmit(repository.githubRepoId)}
-                      >
-                        <Plus size={15} />
-                        {t('submit')}
-                      </button>
-                    ) : null}
-                    {submitted?.status === 'active' ? (
-                      <button
-                        className="inline-button"
-                        disabled={loading}
-                        onClick={() => onPause(submitted.id)}
-                      >
-                        <Pause size={14} />
-                        {t('pausePromotion')}
-                      </button>
-                    ) : null}
-                    {submitted?.status === 'paused' ? (
-                      <button
-                        className="inline-button"
-                        disabled={loading}
-                        onClick={() => onResume(submitted.id)}
-                      >
-                        <Play size={14} />
-                        {t('resumePromotion')}
-                      </button>
-                    ) : null}
-                    {submitted?.status === 'inactive' ? (
-                      <button
-                        className="inline-button"
-                        disabled={loading || !canSwitch}
-                        onClick={() => onActivate(submitted.id)}
-                      >
-                        <Star size={14} />
-                        {t('activatePromotion')}
-                      </button>
-                    ) : null}
-                  </div>
-                  {submitted ? (
-                    <div className="repository-star-summary">
-                      <div className="star-summary-count">
-                        <Star size={15} />
-                        <strong>
-                          {t('starBuddyStars', {
-                            count: submitted.starBuddyStarsCount,
-                          })}
-                        </strong>
-                      </div>
-                      {submitted.recentStars.length > 0 ? (
-                        <div className="stargazer-list">
-                          <span>{t('recentStargazers')}</span>
-                          <div>
-                            {submitted.recentStars.map((star) => (
-                              <span className="stargazer-chip" key={star.id}>
-                                {star.actor.avatarUrl ? (
-                                  <img src={star.actor.avatarUrl} alt="" />
-                                ) : null}
-                                {star.actor.githubLogin}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="muted">{t('noStarBuddyStars')}</span>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </>
+      <section className="surface-panel p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm text-on-surface-variant">
+              {t('submittedCount', {
+                submitted: submittedCount,
+                total: repositories.length,
+              })}
+            </p>
+            {promotionSwitch?.switchUsedToday && switchRemainingMs > 0 ? (
+              <p className="mono mt-1 text-secondary">
+                {t('switchResetCountdown', { time: formatDuration(switchRemainingMs) })}
+              </p>
+            ) : null}
+          </div>
+          <label className="relative block w-full md:w-80">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
+              size={18}
+            />
+            <input
+              className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-low pl-10 pr-3 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={label(language, 'Search repositories...', '搜索仓库...')}
+              value={query}
+            />
+          </label>
+        </div>
+      </section>
+
+      <div className="grid gap-4">
+        {loading && repositories.length === 0 ? (
+          <LoadingBlock text={t('loadingProjects')} />
+        ) : filteredRepositories.length === 0 ? (
+          <EmptyBlock
+            icon={<BookOpen size={28} />}
+            title={t('noPublicRepositories')}
+            description={t('noProjectsAvailableHelp')}
+          />
+        ) : (
+          filteredRepositories.map((repository) => (
+            <RepositoryRow
+              canSwitch={canSwitch}
+              key={repository.githubRepoId}
+              language={language}
+              loading={loading}
+              repository={repository}
+              t={t}
+              onActivate={onActivate}
+              onPause={onPause}
+              onResume={onResume}
+              onSubmit={onSubmit}
+            />
+          ))
         )}
       </div>
     </section>
+  );
+}
+
+function HistoryView({
+  language,
+  ledger,
+  t,
+  user,
+}: {
+  language: Language;
+  ledger: CreditLedgerEntry[];
+  t: Translator;
+  user: User | null;
+}) {
+  const earned = ledger
+    .filter((entry) => entry.amount > 0)
+    .reduce((total, entry) => total + entry.amount, 0);
+  const spent = Math.abs(
+    ledger
+      .filter((entry) => entry.amount < 0)
+      .reduce((total, entry) => total + entry.amount, 0),
+  );
+
+  return (
+    <section className="space-y-5">
+      <PageHeader
+        eyebrow={label(language, 'Contribution History', '贡献历史')}
+        title={label(language, 'Review your lifetime impact.', '回顾你的长期贡献。')}
+        description={label(
+          language,
+          'Track earned credits, promotion spend, and the effective contribution log.',
+          '追踪积分收入、推广消耗和有效贡献记录。',
+        )}
+      />
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricBlock
+          icon={<WalletCards size={22} />}
+          label={t('credits')}
+          tone="text-secondary"
+          value={String(user?.creditsBalance ?? 0)}
+        />
+        <MetricBlock
+          icon={<ArrowRight size={22} />}
+          label={label(language, 'Earned', '已赚取')}
+          tone="text-tertiary"
+          value={`+${earned}`}
+        />
+        <MetricBlock
+          icon={<Star size={22} />}
+          label={label(language, 'Spent', '已消耗')}
+          tone="text-primary"
+          value={`-${spent}`}
+        />
+      </div>
+
+      <section className="surface-panel overflow-hidden">
+        <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-high px-4 py-3">
+          <SectionTitle
+            icon={<History size={18} />}
+            title={label(language, 'Effective Contributions', '有效贡献')}
+          />
+          <span className="mono text-on-surface-variant">{ledger.length}</span>
+        </div>
+        <LedgerList language={language} ledger={ledger} t={t} />
+      </section>
+    </section>
+  );
+}
+
+function TaskPanel({
+  language,
+  loading,
+  task,
+  t,
+  onRefresh,
+  onReport,
+  onStar,
+}: {
+  language: Language;
+  loading: boolean;
+  task: CurrentTask | EmptyTask | null;
+  t: Translator;
+  onRefresh: () => void;
+  onReport: (repositoryId: string) => void;
+  onStar: (claimId: string) => void;
+}) {
+  if (!task) {
+    return (
+      <EmptyBlock
+        action={
+          <button className="primary-button" disabled={loading} onClick={onRefresh}>
+            {loading ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
+            {t('loadRecommendation')}
+          </button>
+        }
+        icon={<Star size={32} />}
+        title={t('projectQueueReady')}
+        description={t('projectQueueReadyHelp')}
+      />
+    );
+  }
+
+  if (task.status !== 'available') {
+    const copy = emptyTaskCopy(language, task.status, t);
+    return (
+      <EmptyBlock
+        action={
+          <button className="secondary-button" disabled={loading} onClick={onRefresh}>
+            <RefreshCw size={17} />
+            {t('refresh')}
+          </button>
+        }
+        icon={copy.icon}
+        title={copy.title}
+        description={copy.description}
+      />
+    );
+  }
+
+  const githubUrl = `https://github.com/${task.repository.owner}/${task.repository.repo}`;
+
+  return (
+    <section className="surface-panel-low relative overflow-hidden p-5 md:p-6">
+      <div className="pointer-events-none absolute inset-0 bg-primary-container opacity-[0.03]" />
+      <div className="relative space-y-6">
+        <div className="flex flex-col gap-4 border-b border-outline-variant pb-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-high text-primary">
+              <Star size={24} />
+            </div>
+            <div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="status-badge border-primary/30 bg-primary/10 text-primary">
+                  Active Claim
+                </span>
+                <span className="mono flex items-center gap-1 text-error">
+                  <Clock3 size={14} />
+                  {new Date(task.expiresAt).toLocaleTimeString(
+                    language === 'zh' ? 'zh-CN' : 'en-US',
+                  )}
+                </span>
+              </div>
+              <h2 className="mono text-xl text-on-surface">
+                {task.repository.fullName}
+              </h2>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <a
+              className="secondary-button"
+              href={githubUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Github size={17} />
+              {label(language, 'Go to Repo', '前往仓库')}
+            </a>
+            <button
+              className="primary-button bg-tertiary text-on-tertiary"
+              disabled={loading}
+              onClick={() => onStar(task.claimId)}
+            >
+              {loading ? <Loader2 className="spin" size={17} /> : <BadgeCheck size={17} />}
+              {t('starThisProject')}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[1.4fr_0.6fr]">
+          <div>
+            <p className="max-w-3xl text-base leading-7 text-on-surface-variant">
+              {task.repository.description ?? t('descriptionFallback')}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <StatPill icon={<Star size={15} />} value={`${task.repository.starsCountSnapshot}`} label={t('stars')} />
+              <StatPill icon={<WalletCards size={15} />} value={`+${task.rewardCredits}`} label={t('creditUnit')} />
+            </div>
+          </div>
+          <div className="surface-panel bg-surface-container-high p-4">
+            <p className="label-caps text-on-surface-variant">
+              {label(language, 'Task Guidance', '任务说明')}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+              {label(
+                language,
+                'Open the repository, review it deliberately, then complete the star action through StarBuddy.',
+                '打开仓库，认真查看后，通过 StarBuddy 完成 Star 操作。',
+              )}
+            </p>
+            <button
+              className="ghost-button mt-4 w-full"
+              disabled={loading}
+              onClick={() => onReport(task.repository.id)}
+            >
+              <Flag size={16} />
+              {t('reportProject')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CompactTaskSummary({
+  language,
+  loading,
+  task,
+  t,
+  onGoTasks,
+  onRefresh,
+}: {
+  language: Language;
+  loading: boolean;
+  task: CurrentTask | EmptyTask | null;
+  t: Translator;
+  onGoTasks: () => void;
+  onRefresh: () => void;
+}) {
+  if (!task || task.status !== 'available') {
+    return (
+      <div className="rounded-lg border border-dashed border-outline-variant bg-surface-container-low p-4">
+        <p className="text-sm text-on-surface-variant">
+          {!task ? t('projectQueueReadyHelp') : emptyTaskCopy(language, task.status, t).description}
+        </p>
+        <button className="secondary-button mt-4" disabled={loading} onClick={onRefresh}>
+          <RefreshCw size={16} />
+          {t('refresh')}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="mono text-lg text-on-surface">{task.repository.fullName}</h3>
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-on-surface-variant">
+          {task.repository.description ?? t('descriptionFallback')}
+        </p>
+      </div>
+      <button className="primary-button" onClick={onGoTasks}>
+        <ArrowRight size={16} />
+        {label(language, 'Open Task', '打开任务')}
+      </button>
+    </div>
+  );
+}
+
+function RepositoryRow({
+  canSwitch,
+  language,
+  loading,
+  repository,
+  t,
+  onActivate,
+  onPause,
+  onResume,
+  onSubmit,
+}: {
+  canSwitch: boolean;
+  language: Language;
+  loading: boolean;
+  repository: GithubRepository;
+  t: Translator;
+  onActivate: (repositoryId: string) => void;
+  onPause: (repositoryId: string) => void;
+  onResume: (repositoryId: string) => void;
+  onSubmit: (githubRepoId: string) => void;
+}) {
+  const submitted = repository.submittedRepository;
+  const description =
+    submitted?.description ?? repository.description ?? t('descriptionFallback');
+  const starsCount = submitted?.starsCountSnapshot ?? repository.starsCountSnapshot;
+
+  return (
+    <article className="surface-panel-low p-4 md:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="mono truncate text-lg text-on-surface">
+              {repository.githubOwner}/{repository.githubRepo}
+            </h3>
+            {submitted ? (
+              <RepositoryStatusBadge language={language} status={submitted.status} />
+            ) : (
+              <span className="status-badge border-outline-variant bg-surface-container text-on-surface-variant">
+                GitHub
+              </span>
+            )}
+          </div>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-on-surface-variant">
+            {description}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <StatPill icon={<Star size={15} />} value={String(starsCount)} label={t('stars')} />
+            {submitted ? (
+              <StatPill
+                icon={<BadgeCheck size={15} />}
+                value={String(submitted.starBuddyStarsCount)}
+                label="StarBuddy"
+              />
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+          {!submitted ? (
+            <button
+              className="primary-button"
+              disabled={loading}
+              onClick={() => onSubmit(repository.githubRepoId)}
+            >
+              <Plus size={16} />
+              {t('submit')}
+            </button>
+          ) : null}
+          {submitted?.status === 'active' ? (
+            <button
+              className="secondary-button"
+              disabled={loading}
+              onClick={() => onPause(submitted.id)}
+            >
+              <Pause size={16} />
+              {t('pausePromotion')}
+            </button>
+          ) : null}
+          {submitted?.status === 'paused' ? (
+            <button
+              className="secondary-button"
+              disabled={loading}
+              onClick={() => onResume(submitted.id)}
+            >
+              <Play size={16} />
+              {t('resumePromotion')}
+            </button>
+          ) : null}
+          {submitted?.status === 'inactive' ? (
+            <button
+              className="primary-button"
+              disabled={loading || !canSwitch}
+              onClick={() => onActivate(submitted.id)}
+            >
+              <Star size={16} />
+              {t('activatePromotion')}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {submitted?.recentStars.length ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-outline-variant pt-4">
+          <span className="label-caps text-on-surface-variant">
+            {t('recentStargazers')}
+          </span>
+          {submitted.recentStars.map((star) => (
+            <span
+              className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container px-2 py-1 text-xs text-on-surface"
+              key={star.id}
+            >
+              {star.actor.avatarUrl ? (
+                <img alt="" className="h-5 w-5 rounded-full" src={star.actor.avatarUrl} />
+              ) : null}
+              @{star.actor.githubLogin}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function RepositorySummaryCard({
+  language,
+  repository,
+  t,
+}: {
+  language: Language;
+  repository: GithubRepository;
+  t: Translator;
+}) {
+  const submitted = repository.submittedRepository;
+  if (!submitted) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="mono truncate text-lg text-on-surface">
+          {repository.githubOwner}/{repository.githubRepo}
+        </h3>
+        <RepositoryStatusBadge language={language} status={submitted.status} />
+      </div>
+      <p className="text-sm leading-6 text-on-surface-variant">
+        {submitted.description ?? repository.description ?? t('descriptionFallback')}
+      </p>
+      <div className="flex flex-wrap gap-3">
+        <StatPill
+          icon={<Star size={15} />}
+          value={String(submitted.starsCountSnapshot)}
+          label={t('stars')}
+        />
+        <StatPill
+          icon={<BadgeCheck size={15} />}
+          value={String(submitted.starBuddyStarsCount)}
+          label="StarBuddy"
+        />
+      </div>
+    </div>
+  );
+}
+
+function LedgerList({
+  language,
+  ledger,
+  t,
+}: {
+  language: Language;
+  ledger: CreditLedgerEntry[];
+  t: Translator;
+}) {
+  if (ledger.length === 0) {
+    return (
+      <div className="p-5">
+        <p className="text-sm text-on-surface-variant">{t('noCreditActivity')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y divide-outline-variant">
+      {ledger.map((entry) => (
+        <div
+          className="grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto_auto] sm:items-center"
+          key={entry.id}
+        >
+          <div>
+            <strong className="text-sm text-on-surface">
+              {formatLedgerReason(language, entry.reason)}
+            </strong>
+            <p className="mono mt-1 text-on-surface-variant">
+              {new Date(entry.createdAt).toLocaleString(
+                language === 'zh' ? 'zh-CN' : 'en-US',
+              )}
+            </p>
+          </div>
+          <span className="mono text-on-surface-variant">
+            {entry.relatedEntityType ?? label(language, 'Account', '账户')}
+          </span>
+          <span
+            className={`mono text-lg ${entry.amount >= 0 ? 'text-tertiary' : 'text-error'}`}
+          >
+            {entry.amount > 0 ? '+' : ''}
+            {entry.amount}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PageHeader({
+  description,
+  eyebrow,
+  right,
+  title,
+}: {
+  description?: string;
+  eyebrow: string;
+  right?: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <header className="flex flex-col gap-4 border-b border-outline-variant pb-5 md:flex-row md:items-end md:justify-between">
+      <div>
+        <p className="label-caps mb-2 text-primary">{eyebrow}</p>
+        <h2 className="text-3xl font-semibold leading-tight tracking-tight text-on-surface md:text-[32px]">
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-2 max-w-3xl text-base leading-7 text-on-surface-variant">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      {right ? <div className="shrink-0">{right}</div> : null}
+    </header>
+  );
+}
+
+function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="mb-4 flex items-center gap-2 text-on-surface">
+      <span className="text-primary">{icon}</span>
+      <h3 className="text-lg font-semibold">{title}</h3>
+    </div>
+  );
+}
+
+function MetricBlock({
+  icon,
+  label,
+  tone,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  tone: string;
+  value: string;
+}) {
+  return (
+    <div className="surface-panel bg-surface-container p-4">
+      <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-high ${tone}`}>
+        {icon}
+      </div>
+      <p className="text-sm text-on-surface-variant">{label}</p>
+      <strong className="mt-1 block font-mono text-3xl font-semibold tabular-nums tracking-tight text-on-surface">
+        {value}
+      </strong>
+    </div>
+  );
+}
+
+function StatPill({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <span className="inline-flex min-h-8 items-center gap-2 rounded-full border border-outline-variant bg-surface-container-high px-3 text-sm text-on-surface-variant">
+      {icon}
+      <strong className="mono text-on-surface">{value}</strong>
+      {label}
+    </span>
+  );
+}
+
+function RepositoryStatusBadge({
+  language,
+  status,
+}: {
+  language: Language;
+  status: string;
+}) {
+  const active = status === 'active';
+  const paused = status.startsWith('paused');
+  return (
+    <span
+      className={`status-badge ${
+        active
+          ? 'border-primary/30 bg-primary/10 text-primary'
+          : paused
+            ? 'border-secondary/30 bg-secondary/10 text-secondary'
+            : 'border-outline-variant bg-surface-container text-on-surface-variant'
+      }`}
+    >
+      {active ? <span className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
+      {formatStatus(language, status)}
+    </span>
+  );
+}
+
+function EmptyBlock({
+  action,
+  description,
+  icon,
+  title,
+}: {
+  action?: React.ReactNode;
+  description: string;
+  icon: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="surface-panel-low grid min-h-80 place-items-center p-8 text-center">
+      <div className="max-w-md">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-high text-primary">
+          {icon}
+        </div>
+        <h2 className="text-2xl font-semibold text-on-surface">{title}</h2>
+        <p className="mt-3 text-sm leading-6 text-on-surface-variant">{description}</p>
+        {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
+      </div>
+    </section>
+  );
+}
+
+function LoadingBlock({ text }: { text: string }) {
+  return (
+    <div className="surface-panel-low flex min-h-40 items-center justify-center gap-3 p-5 text-on-surface-variant">
+      <Loader2 className="spin" size={20} />
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function FlashMessages({ error, message }: { error: string; message: string }) {
+  if (!error && !message) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2">
+      {message ? (
+        <div className="rounded-lg border border-tertiary/30 bg-tertiary/10 px-4 py-3 text-sm text-tertiary">
+          {message}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-error">
+          {error}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function LanguageSwitcher({
+  language,
+  t,
+  onChange,
+}: {
+  language: Language;
+  t: Translator;
+  onChange: (language: Language) => void;
+}) {
+  return (
+    <div
+      className="inline-flex h-10 overflow-hidden rounded-md border border-outline-variant bg-surface-container"
+      aria-label="Language"
+    >
+      <div className="hidden w-9 items-center justify-center border-r border-outline-variant text-on-surface-variant sm:flex">
+        <Languages size={16} />
+      </div>
+      {(['en', 'zh'] as const).map((option) => (
+        <button
+          className={`min-w-11 px-2 text-xs font-bold transition ${
+            language === option
+              ? 'bg-primary text-on-primary'
+              : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+          }`}
+          key={option}
+          onClick={() => onChange(option)}
+          type="button"
+        >
+          {option === 'en' ? t('languageEnglish') : t('languageChinese')}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -772,6 +1674,48 @@ function usePromotionSwitchRemainingMs(
   return remainingMs;
 }
 
+function emptyTaskCopy(
+  language: Language,
+  status: EmptyTask['status'],
+  t: Translator,
+) {
+  if (status === 'tasks_disabled') {
+    return {
+      description: t('noProjectsAvailableHelp'),
+      icon: <Shield size={30} />,
+      title: t('tasksDisabled'),
+    };
+  }
+  if (status === 'account_suspended') {
+    return {
+      description: t('noProjectsAvailableHelp'),
+      icon: <Shield size={30} />,
+      title: t('userSuspended'),
+    };
+  }
+  if (status === 'daily_user_limit_reached') {
+    return {
+      description: label(
+        language,
+        'Your daily task limit is complete. Check back after the next reset.',
+        '你的每日任务上限已完成，请在下次刷新后回来。',
+      ),
+      icon: <Clock3 size={30} />,
+      title: t('dailyLimitReached'),
+    };
+  }
+  return {
+    description: t('noProjectsAvailableHelp'),
+    icon: <BookOpen size={30} />,
+    title: t('noProjectsAvailable'),
+  };
+}
+
+function readHashView(): View {
+  const hash = window.location.hash.replace('#', '');
+  return views.some((view) => view.id === hash) ? (hash as View) : 'dashboard';
+}
+
 function formatDuration(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -783,295 +1727,8 @@ function formatDuration(milliseconds: number) {
     .join(':');
 }
 
-function TaskCard({
-  language,
-  task,
-  loading,
-  t,
-  onInitialLoad,
-  onReport,
-  onStar,
-}: {
-  language: Language;
-  task: CurrentTask | EmptyTask | null;
-  loading: boolean;
-  t: Translator;
-  onInitialLoad: () => void;
-  onReport: (repositoryId: string) => void;
-  onStar: (claimId: string) => void;
-}) {
-  if (!task) {
-    return (
-      <section className="project-card empty-card">
-        <Star size={34} />
-        <h2>{t('projectQueueReady')}</h2>
-        <p>{t('projectQueueReadyHelp')}</p>
-        <button className="primary-button" disabled={loading} onClick={onInitialLoad}>
-          {loading ? <Loader2 className="spin" size={18} /> : <ArrowRight size={18} />}
-          {t('loadRecommendation')}
-        </button>
-      </section>
-    );
-  }
-
-  if (task.status === 'no_task_available') {
-    return (
-      <section className="project-card empty-card">
-        <Github size={34} />
-        <h2>{t('noProjectsAvailable')}</h2>
-        <p>{t('noProjectsAvailableHelp')}</p>
-        <button className="secondary-button" disabled={loading} onClick={onInitialLoad}>
-          <RefreshCw size={17} />
-          {t('refresh')}
-        </button>
-      </section>
-    );
-  }
-
-  if (task.status === 'tasks_disabled') {
-    return (
-      <section className="project-card empty-card">
-        <Shield size={34} />
-        <h2>{t('tasksDisabled')}</h2>
-        <p>{t('noProjectsAvailableHelp')}</p>
-      </section>
-    );
-  }
-
-  if (task.status === 'account_suspended') {
-    return (
-      <section className="project-card empty-card">
-        <Ban size={34} />
-        <h2>{t('userSuspended')}</h2>
-        <p>{t('noProjectsAvailableHelp')}</p>
-      </section>
-    );
-  }
-
-  if (task.status === 'daily_user_limit_reached') {
-    return (
-      <section className="project-card empty-card">
-        <Star size={34} />
-        <h2>{t('dailyLimitReached')}</h2>
-        <button className="secondary-button" disabled={loading} onClick={onInitialLoad}>
-          <RefreshCw size={17} />
-          {t('refresh')}
-        </button>
-      </section>
-    );
-  }
-
-  if (task.status !== 'available') {
-    return null;
-  }
-
-  return (
-    <section className="project-card">
-      <div className="project-meta">
-        <span>{t('recommendedProject')}</span>
-        <span>
-          +{task.rewardCredits} {t('creditUnit')}
-        </span>
-      </div>
-      <h2>{task.repository.fullName}</h2>
-      <p className="description">
-        {task.repository.description ?? t('descriptionFallback')}
-      </p>
-      <div className="stats-strip">
-        <div>
-          <strong>{task.repository.starsCountSnapshot}</strong>
-          <span>{t('stars')}</span>
-        </div>
-        <div>
-          <strong>{new Date(task.expiresAt).toLocaleTimeString(language === 'zh' ? 'zh-CN' : 'en-US')}</strong>
-          <span>{t('claimExpires')}</span>
-        </div>
-      </div>
-      <div className="card-actions">
-        <button
-          className="ghost-action"
-          disabled={loading}
-          onClick={() => onReport(task.repository.id)}
-        >
-          <Flag size={18} />
-          {t('reportProject')}
-        </button>
-        <button
-          className="primary-action"
-          disabled={loading}
-          onClick={() => onStar(task.claimId)}
-        >
-          {loading ? <Loader2 className="spin" size={20} /> : <Star size={20} />}
-          {t('starThisProject')}
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function CreditPanel({
-  language,
-  user,
-  ledger,
-  t,
-}: {
-  language: Language;
-  user: User | null;
-  ledger: CreditLedgerEntry[];
-  t: Translator;
-}) {
-  return (
-    <section className="tool-panel">
-      <div className="panel-title">
-        <WalletCards size={18} />
-        <h2>{t('credits')}</h2>
-      </div>
-      <div className="balance">{user?.creditsBalance ?? 0}</div>
-      <div className="compact-list">
-        {ledger.length === 0 ? (
-          <p className="muted">{t('noCreditActivity')}</p>
-        ) : (
-          ledger.slice(0, 8).map((entry) => (
-            <div className="compact-row" key={entry.id}>
-              <strong className={entry.amount > 0 ? 'positive' : 'negative'}>
-                {entry.amount > 0 ? '+' : ''}
-                {entry.amount}
-              </strong>
-              <span>{formatLedgerReason(language, entry.reason)}</span>
-            </div>
-          ))
-        )}
-      </div>
-    </section>
-  );
-}
-
-function AdminPanel({
-  language,
-  loading,
-  reports,
-  system,
-  t,
-  onCleanup,
-  onRepositoryAction,
-  onSuspendUser,
-}: {
-  language: Language;
-  loading: boolean;
-  reports: RepositoryReport[];
-  system: AdminSystemStatus | null;
-  t: Translator;
-  onCleanup: () => void;
-  onRepositoryAction: (
-    repositoryId: string,
-    action: 'archive' | 'reject' | 'restore',
-  ) => void;
-  onSuspendUser: (userId: string) => void;
-}) {
-  return (
-    <section className="tool-panel admin-panel">
-      <div className="panel-title">
-        <Shield size={18} />
-        <h2>{t('admin')}</h2>
-      </div>
-
-      <div className="admin-system">
-        <strong>{t('adminSystem')}</strong>
-        <span className={system?.starTasksEnabled ? 'positive' : 'negative'}>
-          tasks: {system?.starTasksEnabled ? 'on' : 'off'}
-        </span>
-        <span className={system?.repositoryPromotionEnabled ? 'positive' : 'negative'}>
-          promotion: {system?.repositoryPromotionEnabled ? 'on' : 'off'}
-        </span>
-      </div>
-
-      <button className="secondary-button" disabled={loading} onClick={onCleanup}>
-        <Trash2 size={16} />
-        {t('adminCleanup')}
-      </button>
-
-      <div className="admin-reports">
-        <strong>{t('adminReports')}</strong>
-        {reports.length === 0 ? (
-          <p className="muted">{t('noReports')}</p>
-        ) : (
-          reports.map((report) => (
-            <div className="admin-report-row" key={report.id}>
-              <div>
-                <strong>
-                  {report.repository.githubOwner}/{report.repository.githubRepo}
-                </strong>
-                <span>
-                  {formatStatus(language, report.repository.status)} · @
-                  {report.reporter.githubLogin}
-                </span>
-                {report.reason ? <p>{report.reason}</p> : null}
-              </div>
-              <div className="admin-actions">
-                <button
-                  className="inline-button"
-                  disabled={loading}
-                  onClick={() => onRepositoryAction(report.repository.id, 'archive')}
-                >
-                  <Archive size={14} />
-                  {t('archiveRepository')}
-                </button>
-                <button
-                  className="inline-button"
-                  disabled={loading}
-                  onClick={() => onRepositoryAction(report.repository.id, 'reject')}
-                >
-                  <Ban size={14} />
-                  {t('rejectRepository')}
-                </button>
-                <button
-                  className="inline-button"
-                  disabled={loading}
-                  onClick={() => onRepositoryAction(report.repository.id, 'restore')}
-                >
-                  <RotateCcw size={14} />
-                  {t('restoreRepository')}
-                </button>
-                <button
-                  className="inline-button"
-                  disabled={loading}
-                  onClick={() => onSuspendUser(report.reporter.id)}
-                >
-                  <Shield size={14} />
-                  {t('suspendReporter')}
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </section>
-  );
-}
-
-function LanguageSwitcher({
-  language,
-  t,
-  onChange,
-}: {
-  language: Language;
-  t: Translator;
-  onChange: (language: Language) => void;
-}) {
-  return (
-    <div className="language-switcher" aria-label="Language">
-      {(['en', 'zh'] as const).map((option) => (
-        <button
-          className={language === option ? 'active' : undefined}
-          key={option}
-          onClick={() => onChange(option)}
-          type="button"
-        >
-          {option === 'en' ? t('languageEnglish') : t('languageChinese')}
-        </button>
-      ))}
-    </div>
-  );
+function label(language: Language, english: string, chinese: string) {
+  return language === 'zh' ? chinese : english;
 }
 
 type Translator = (

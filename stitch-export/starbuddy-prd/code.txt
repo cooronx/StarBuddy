@@ -1,0 +1,18 @@
+# StarBuddy Product Specification
+
+## Core User Journey
+1. **Onboarding**: User authenticates with GitHub, receives 5 signup credits.
+2. **Promotion**: User submits a repository to a "Promotion Slot". They can have one "Active Promoted Repository" at a time.
+3. **Earning**: User views the "Star Task" pool, claims a task, stars the repository on GitHub, and earns credits based on the "Contribution Reward Schedule".
+4. **Spending**: "Active Promoted Repositories" consume credits at a 1:1 rate for every rewarded star received via the "Fair Task Rotation".
+
+## Key States
+- **Eligible Promotion**: Active + has credits.
+- **Paused**: Occupies slot but not in pool.
+- **Inactive**: Retained but not in slot.
+- **Reserved Credit**: Locked by an active claim.
+
+## Reward Schedule
+- Signup: 5 credits.
+- First 5 contributions: 1 credit each.
+- After 5: 0.5 credits each (1 credit per 2 contributions).

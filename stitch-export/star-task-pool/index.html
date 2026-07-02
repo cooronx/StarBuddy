@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Star Tasks - StarBuddy</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Geist:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-primary": "#005bbf",
+                        "on-primary-fixed": "#001a40",
+                        "tertiary": "#7bdb80",
+                        "secondary-fixed": "#ffdf9e",
+                        "secondary-fixed-dim": "#f1c04c",
+                        "primary-fixed-dim": "#acc7ff",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary": "#3f2e00",
+                        "surface-container-low": "#181c22",
+                        "outline": "#8b909f",
+                        "surface-bright": "#353940",
+                        "surface-container-high": "#262a31",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "tertiary-fixed": "#97f999",
+                        "on-tertiary-fixed-variant": "#005319",
+                        "on-tertiary-container": "#00320b",
+                        "on-surface-variant": "#c1c6d6",
+                        "error": "#ffb4ab",
+                        "on-primary-container": "#00285b",
+                        "inverse-on-surface": "#2d3137",
+                        "primary-container": "#498fff",
+                        "background": "#10141a",
+                        "on-surface": "#dfe2eb",
+                        "secondary": "#f1c04c",
+                        "on-tertiary-fixed": "#002106",
+                        "surface-tint": "#acc7ff",
+                        "surface-container-highest": "#31353c",
+                        "on-primary": "#002f68",
+                        "primary": "#acc7ff",
+                        "surface-dim": "#10141a",
+                        "on-secondary-container": "#372700",
+                        "inverse-surface": "#dfe2eb",
+                        "surface-container-lowest": "#0a0e14",
+                        "on-tertiary": "#00390e",
+                        "surface-container": "#1c2026",
+                        "on-secondary-fixed": "#261a00",
+                        "primary-fixed": "#d7e2ff",
+                        "on-background": "#dfe2eb",
+                        "outline-variant": "#414754",
+                        "tertiary-fixed-dim": "#7bdb80",
+                        "tertiary-container": "#44a34f",
+                        "error-container": "#93000a",
+                        "secondary-container": "#b58a17",
+                        "surface": "#10141a",
+                        "on-error": "#690005",
+                        "on-primary-fixed-variant": "#004492",
+                        "surface-variant": "#31353c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "gutter": "16px",
+                        "container-max": "1200px",
+                        "base": "4px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "xl": "48px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-mono": ["Geist"],
+                        "body-lg": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-mono": ["13px", { "lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-sm": ["20px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .credit-loop {
+            animation: spin 3s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-full p-md space-y-sm bg-surface-container-low dark:bg-surface-container-low h-screen w-64 border-r border-outline-variant shrink-0">
+<div class="mb-lg px-sm">
+<h1 class="font-headline-md text-headline-md text-on-surface">Developer Portal</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant mt-xs">Star Coordination</p>
+</div>
+<div class="flex flex-col space-y-sm flex-grow">
+<a class="flex items-center space-x-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+<a class="flex items-center space-x-sm px-md py-sm rounded-lg bg-primary-container text-on-primary-container font-bold hover:bg-surface-container-highest transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">star_rate</span>
+<span class="font-label-caps text-label-caps">Tasks</span>
+</a>
+<a class="flex items-center space-x-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
+<span class="font-label-caps text-label-caps">Repositories</span>
+</a>
+<a class="flex items-center space-x-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined text-[20px]">history</span>
+<span class="font-label-caps text-label-caps">History</span>
+</a>
+</div>
+<div class="mt-auto flex flex-col space-y-sm">
+<button class="w-full py-sm px-md bg-primary text-on-primary font-label-caps text-label-caps rounded-lg hover:bg-primary-fixed transition-colors">
+                New Promotion
+            </button>
+<div class="pt-sm border-t border-outline-variant flex flex-col space-y-xs">
+<a class="flex items-center space-x-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[18px]">menu_book</span>
+<span class="font-label-caps text-label-caps">Docs</span>
+</a>
+<a class="flex items-center space-x-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[18px]">contact_support</span>
+<span class="font-label-caps text-label-caps">Support</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex flex-col flex-grow overflow-hidden relative">
+<!-- TopAppBar (Mobile & Global Actions) -->
+<header class="flex justify-between items-center w-full px-lg h-16 bg-background dark:bg-background border-b border-outline-variant shrink-0">
+<div class="md:hidden flex items-center space-x-sm">
+<span class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary">StarCoordinate</span>
+</div>
+<div class="hidden md:flex flex-grow items-center justify-start ml-lg">
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-sm top-1/2 transform -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-xl pr-sm py-xs text-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-on-surface placeholder-on-surface-variant" placeholder="Search tasks..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-md ml-auto">
+<div class="flex items-center space-x-xs px-sm py-xs bg-surface-container-high rounded-full border border-outline-variant">
+<span class="material-symbols-outlined text-secondary text-[16px] credit-loop">stars</span>
+<span class="font-label-mono text-label-mono text-on-surface">12.50 CR</span>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="hidden md:block px-md py-sm bg-primary text-on-primary font-label-caps text-label-caps rounded-lg hover:bg-primary-fixed transition-colors">
+                    Connect GitHub
+                </button>
+<img alt="User profile" class="w-8 h-8 rounded-full border border-outline-variant object-cover ml-sm cursor-pointer" data-alt="A small, stylized avatar portrait of a software developer in a dark mode cyber aesthetic, featuring glowing neon blue accents and a minimalist geometric background. The portrait should look professional yet suitable for a modern coding platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgHQSzsIrOyV3SHo48Wq90viNtQi0spePGPDBOcgOS8gyb89XIQJvTQ4T8LaCe86GeQO8T7F54s7TslikETbuSL6L-kaVAIG4HFMPXziM4H8RcSZAi6N1J2Nq7KdIqeDeRL7dx8ghVsASFsCU3AQErb9tIZLwLuTdLY_ooqsdfu4RkeYfmx1dGxwVq60cPVMpzQOzBtmewIvZOzu7wwI4rLbbr_44lvToR9suypjwRN4e8l89Kpfm0fbNZfD9R95ONl7wjJECzsOo"/>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-grow overflow-y-auto p-lg bg-surface-container-lowest">
+<div class="max-w-container-max mx-auto space-y-lg">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-lg">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface">Star Tasks</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Discover repositories seeking stars and earn credits to promote your own projects.</p>
+</div>
+</div>
+<!-- Active Claim Banner (Pinned) -->
+<div class="bg-surface-container border border-primary-container rounded-lg p-md relative overflow-hidden">
+<div class="absolute inset-0 bg-primary-container opacity-5 pointer-events-none"></div>
+<div class="flex flex-col md:flex-row justify-between items-center relative z-10 gap-md">
+<div class="flex items-center space-x-md w-full md:w-auto">
+<div class="w-10 h-10 rounded bg-surface-container-high border border-outline-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">bookmark_added</span>
+</div>
+<div>
+<div class="flex items-center space-x-sm mb-xs">
+<span class="px-2 py-0.5 rounded-full bg-primary-fixed-dim/20 border border-primary-fixed/30 font-label-caps text-label-caps text-primary text-[10px]">ACTIVE CLAIM</span>
+<span class="font-label-mono text-label-mono text-error flex items-center"><span class="material-symbols-outlined text-[14px] mr-xs">timer</span> 14:23 remaining</span>
+</div>
+<h3 class="font-label-mono text-label-mono text-on-surface text-lg">AcmeCorp / nextjs-boilerplate</h3>
+</div>
+</div>
+<div class="flex items-center space-x-sm w-full md:w-auto justify-end">
+<a class="px-md py-sm bg-surface-bright text-on-surface border border-outline-variant font-label-caps text-label-caps rounded hover:bg-surface-variant transition-colors flex items-center" href="#">
+<span class="material-symbols-outlined text-[16px] mr-xs">open_in_new</span> Go to Repo
+                            </a>
+<button class="px-md py-sm bg-tertiary text-on-tertiary font-label-caps text-label-caps rounded hover:bg-tertiary-fixed transition-colors flex items-center">
+<span class="material-symbols-outlined text-[16px] mr-xs">verified</span> Verify Star
+                            </button>
+</div>
+</div>
+</div>
+<div class="flex flex-col lg:flex-row gap-lg">
+<!-- Task List Grid -->
+<div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-md">
+<!-- Task Item 1 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-md flex flex-col justify-between hover:border-outline transition-colors group">
+<div>
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center space-x-sm">
+<img alt="Owner" class="w-6 h-6 rounded bg-surface-container-high" data-alt="A small, stylized avatar logo for an open source project, featuring an abstract geometric shape in cool blues and purples on a dark background. Minimalist tech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuArknC58b9zr-UUodKiFirqZnCY0uevI8caMgLQS-F4-DbtP7138zdWlc_U1Yqe3Sp2-2RWrnMaC_iIgWgOs6E9_py3r0Q16w61jBxzbrU1qsz_c6OaCMg-KCDM4TnPmRS3xW0Ob120BgIEKuQ7AHCiE5dj86zTowHs33l8RrkrPA4zen-kilWdPxPO7KCOSIIdmM2oN-TdZ0Hoh7UkakHFwCc3DG3EfkI2CjfPeTG6OlgfBXfIuj9Vok4nQ_AiIiTO6FOJcXWPNBo"/>
+<span class="font-label-mono text-label-mono text-on-surface">facebook / react</span>
+</div>
+<div class="flex items-center space-x-xs bg-surface-container-low px-2 py-1 rounded border border-outline-variant">
+<span class="font-label-mono text-label-mono text-secondary">+1.0 CR</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm line-clamp-2 mb-md">A declarative, efficient, and flexible JavaScript library for building user interfaces.</p>
+</div>
+<div class="flex items-center justify-between pt-sm border-t border-outline-variant/50">
+<div class="flex items-center space-x-sm text-on-surface-variant text-xs">
+<span class="flex items-center"><span class="material-symbols-outlined text-[14px] mr-[2px]">star</span> 210k</span>
+<span class="flex items-center"><span class="material-symbols-outlined text-[14px] mr-[2px]">schedule</span> 2h ago</span>
+</div>
+<button class="px-sm py-1.5 bg-primary text-on-primary font-label-caps text-label-caps rounded opacity-90 group-hover:opacity-100 transition-opacity">
+                                    Claim Task
+                                </button>
+</div>
+</div>
+<!-- Task Item 2 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-md flex flex-col justify-between hover:border-outline transition-colors group">
+<div>
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center space-x-sm">
+<img alt="Owner" class="w-6 h-6 rounded bg-surface-container-high" data-alt="A small, stylized avatar logo for a javascript framework, featuring a sleek, modern geometric icon in deep green and white on a dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfPtcx8KXjY_QUe_pG6D7SU8axII9kOHyUAoxa8yCOx5MgtvBgF92v-MazRowX-S33PTMdahCICETH3zw8fhIMBT3uWRubVRZn__ymKuePBdSwtjXuJ4zXOp1UR1N99qyvTFEvRM4x1X4V1ukl2OUp0yN3JeheJKvUNg2BegOhm_2wk1TvcAGSv75c9aItFciHRydi28dRi1eJwdATggAXe4f0NdOcsqZzNNB4u5Di9gOZFi-9psPTGBpvMKk0pMri6OYqGRDRaaA"/>
+<span class="font-label-mono text-label-mono text-on-surface">vuejs / core</span>
+</div>
+<div class="flex items-center space-x-xs bg-surface-container-low px-2 py-1 rounded border border-outline-variant">
+<span class="font-label-mono text-label-mono text-secondary">+0.8 CR</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm line-clamp-2 mb-md">Vue.js is a progressive, incrementally-adoptable JavaScript framework for building UI on the web.</p>
+</div>
+<div class="flex items-center justify-between pt-sm border-t border-outline-variant/50">
+<div class="flex items-center space-x-sm text-on-surface-variant text-xs">
+<span class="flex items-center"><span class="material-symbols-outlined text-[14px] mr-[2px]">star</span> 40k</span>
+<span class="flex items-center"><span class="material-symbols-outlined text-[14px] mr-[2px]">schedule</span> 5h ago</span>
+</div>
+<button class="px-sm py-1.5 bg-primary text-on-primary font-label-caps text-label-caps rounded opacity-90 group-hover:opacity-100 transition-opacity">
+                                    Claim Task
+                                </button>
+</div>
+</div>
+<!-- Task Item 3 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-md flex flex-col justify-between hover:border-outline transition-colors group">
+<div>
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center space-x-sm">
+<img alt="Owner" class="w-6 h-6 rounded bg-surface-container-high" data-alt="A small, stylized avatar logo for a rust project, featuring a rusty gear or crab motif in muted orange and dark grey on a dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvEq8-hOgqscyvwgKT9HQp72JhM6RtmpnE53Wyg3jIcZchlOGaB-4x_8lP7a9_nnvzQi_1r7RcrAITsOH0Y5xdBnCvOzeIcxFFptDCvfjQMNdBwNOCZ-Uj7mx0-ZPSD5Oimlr82RBevT6ayMv2eMiqpiPtNMkJmWug6_DUnPXriuKYuqwRPbJgGjRGv9_jjPjTxYC0_8Qce1zzNjpra5KjP4HfajxJLxy8LiQ_DOeeFFdfxEaQ3ck6sb6hha4BfKfv0kvPhlal6L8"/>
+<span class="font-label-mono text-label-mono text-on-surface">rust-lang / rust</span>
+</div>
+<div class="flex items-center space-x-xs bg-surface-container-low px-2 py-1 rounded border border-outline-variant">
+<span class="font-label-mono text-label-mono text-secondary">+1.5 CR</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm line-clamp-2 mb-md">Empowering everyone to build reliable and efficient software.</p>
+</div>
+<div class="flex items-center justify-between pt-sm border-t border-outline-variant/50">
+<div class="flex items-center space-x-sm text-on-surface-variant text-xs">
+<span class="flex items-center"><span class="material-symbols-outlined text-[14px] mr-[2px]">star</span> 85k</span>
+<span class="flex items-center"><span class="material-symbols-outlined text-[14px] mr-[2px]">schedule</span> 1d ago</span>
+</div>
+<button class="px-sm py-1.5 bg-primary text-on-primary font-label-caps text-label-caps rounded opacity-90 group-hover:opacity-100 transition-opacity">
+                                    Claim Task
+                                </button>
+</div>
+</div>
+<!-- Task Item 4 -->
+<div class="bg-surface border border-outline-variant rounded-lg p-md flex flex-col justify-between hover:border-outline transition-colors group">
+<div>
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center space-x-sm">
+<img alt="Owner" class="w-6 h-6 rounded bg-surface-container-high" data-alt="A small, stylized avatar logo for a design system, featuring clean, abstract UI elements in high contrast black and white on a dark grey background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNHUFS2GbEaW_1-asoqVoth3mOx0VyhnRD1tKvEnxBH2FghF6QgIxLetziJslL6o4Ovd4wSa-FBgCCeCfeH7e2376_n3da95mxkN9g58VRDE1Np2kp-K-awj_DB8assqXxnn3kV-72lk4qcY8Hjtpd3p80XZuyXVAkOj0JzbvgZEDjc1uaFiXCfWPgD2vWKJmdSLoMY1K8PUC1dsNraDPUMu1F6-ydKe13R_WL3FCdf8khyB-e3amROIrLgbYhrDT4zwGRtS6gEZI"/>
+<span class="font-label-mono text-label-mono text-on-surface">vercel / next.js</span>
+</div>
+<div class="flex items-center space-x-xs bg-surface-container-low px-2 py-1 rounded border border-outline-variant">
+<span class="font-label-mono text-label-mono text-secondary">+0.5 CR</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm line-clamp-2 mb-md">The React Framework for the Web.</p>
+</div>
+<div class="flex items-center justify-between pt-sm border-t border-outline-variant/50">
+<div class="flex items-center space-x-sm text-on-surface-variant text-xs">
+<span class="flex items-center"><span class="material-symbols-outlined text-[14px] mr-[2px]">star</span> 115k</span>
+<span class="flex items-center"><span class="material-symbols-outlined text-[14px] mr-[2px]">schedule</span> 10m ago</span>
+</div>
+<button class="px-sm py-1.5 bg-primary text-on-primary font-label-caps text-label-caps rounded opacity-90 group-hover:opacity-100 transition-opacity">
+                                    Claim Task
+                                </button>
+</div>
+</div>
+</div>
+<!-- Sidebar Instructions -->
+<aside class="w-full lg:w-72 shrink-0 space-y-md">
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-md">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-sm flex items-center">
+<span class="material-symbols-outlined text-primary mr-xs text-[20px]">info</span> How it works
+                            </h3>
+<ul class="space-y-sm font-body-md text-body-md text-on-surface-variant text-sm">
+<li class="flex items-start">
+<span class="material-symbols-outlined text-[16px] mr-xs mt-[2px] text-outline">ads_click</span>
+<span><strong>Claim</strong> a task from the pool. You have 15 minutes to complete it.</span>
+</li>
+<li class="flex items-start">
+<span class="material-symbols-outlined text-[16px] mr-xs mt-[2px] text-outline">open_in_new</span>
+<span><strong>Star</strong> the repository on GitHub using your connected account.</span>
+</li>
+<li class="flex items-start">
+<span class="material-symbols-outlined text-[16px] mr-xs mt-[2px] text-outline">verified</span>
+<span><strong>Verify</strong> to earn credits instantly added to your balance.</span>
+</li>
+</ul>
+</div>
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-md">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-sm uppercase tracking-wider">Contribution Schedule</h3>
+<div class="space-y-xs">
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface font-body-md">Standard Repo</span>
+<span class="font-label-mono text-secondary text-xs">+0.5 CR</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface font-body-md">Premium Tier</span>
+<span class="font-label-mono text-secondary text-xs">+1.0 CR</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface font-body-md">Urgent Boost</span>
+<span class="font-label-mono text-secondary text-xs">+1.5 CR</span>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</main>
+</div>
+</body></html>

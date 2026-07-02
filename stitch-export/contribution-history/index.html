@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Contribution History - StarCoordinate</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Geist:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-primary": "#005bbf",
+                        "on-primary-fixed": "#001a40",
+                        "tertiary": "#7bdb80",
+                        "secondary-fixed": "#ffdf9e",
+                        "secondary-fixed-dim": "#f1c04c",
+                        "primary-fixed-dim": "#acc7ff",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary": "#3f2e00",
+                        "surface-container-low": "#181c22",
+                        "outline": "#8b909f",
+                        "surface-bright": "#353940",
+                        "surface-container-high": "#262a31",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "tertiary-fixed": "#97f999",
+                        "on-tertiary-fixed-variant": "#005319",
+                        "on-tertiary-container": "#00320b",
+                        "on-surface-variant": "#c1c6d6",
+                        "error": "#ffb4ab",
+                        "on-primary-container": "#00285b",
+                        "inverse-on-surface": "#2d3137",
+                        "primary-container": "#498fff",
+                        "background": "#10141a",
+                        "on-surface": "#dfe2eb",
+                        "secondary": "#f1c04c",
+                        "on-tertiary-fixed": "#002106",
+                        "surface-tint": "#acc7ff",
+                        "surface-container-highest": "#31353c",
+                        "on-primary": "#002f68",
+                        "primary": "#acc7ff",
+                        "surface-dim": "#10141a",
+                        "on-secondary-container": "#372700",
+                        "inverse-surface": "#dfe2eb",
+                        "surface-container-lowest": "#0a0e14",
+                        "on-tertiary": "#00390e",
+                        "surface-container": "#1c2026",
+                        "on-secondary-fixed": "#261a00",
+                        "primary-fixed": "#d7e2ff",
+                        "on-background": "#dfe2eb",
+                        "outline-variant": "#414754",
+                        "tertiary-fixed-dim": "#7bdb80",
+                        "tertiary-container": "#44a34f",
+                        "error-container": "#93000a",
+                        "secondary-container": "#b58a17",
+                        "surface": "#10141a",
+                        "on-error": "#690005",
+                        "on-primary-fixed-variant": "#004492",
+                        "surface-variant": "#31353c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "gutter": "16px",
+                        "container-max": "1200px",
+                        "base": "4px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "xl": "48px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-mono": ["Geist"],
+                        "body-lg": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-mono": ["13px", { "lineHeight": "1", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-sm": ["20px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background dark:bg-background text-on-background font-body-md min-h-screen flex flex-col md:flex-row">
+<!-- SideNavBar (Desktop) -->
+<nav class="hidden md:flex flex-col h-screen w-64 border-r border-outline-variant bg-surface-container-low dark:bg-surface-container-low p-md space-y-sm sticky top-0 shrink-0">
+<div class="mb-lg px-sm">
+<h1 class="font-headline-md text-headline-md text-on-surface">Developer Portal</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Star Coordination</p>
+</div>
+<div class="flex-1 space-y-xs">
+<a class="flex items-center gap-sm px-sm py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all duration-150 active:scale-95 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-sm px-sm py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all duration-150 active:scale-95 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="star_rate">star_rate</span>
+<span>Tasks</span>
+</a>
+<a class="flex items-center gap-sm px-sm py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all duration-150 active:scale-95 text-on-surface-variant font-medium" href="#">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+<span>Repositories</span>
+</a>
+<a class="flex items-center gap-sm px-sm py-sm bg-primary-container text-on-primary-container font-bold rounded-lg transition-all duration-150 active:scale-95 text-on-primary-container" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span>History</span>
+</a>
+</div>
+<div class="mt-auto space-y-sm pt-md border-t border-outline-variant">
+<button class="w-full flex justify-center items-center gap-sm py-sm bg-primary text-on-primary rounded-lg font-body-md hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">add</span> New Promotion
+            </button>
+<div class="flex flex-col space-y-xs mt-sm">
+<a class="flex items-center gap-sm px-sm py-xs text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-colors text-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="menu_book">menu_book</span>
+                    Docs
+                </a>
+<a class="flex items-center gap-sm px-sm py-xs text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-colors text-sm" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="contact_support">contact_support</span>
+                    Support
+                </a>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0">
+<!-- TopNavBar (Mobile Header & Desktop Actions) -->
+<header class="flex justify-between items-center w-full px-lg h-16 border-b border-outline-variant bg-surface-container-lowest sticky top-0 z-10">
+<div class="md:hidden flex items-center gap-sm">
+<span class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary">StarCoordinate</span>
+</div>
+<div class="hidden md:flex flex-1">
+<!-- Search bar spacer -->
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="hidden sm:flex items-center px-sm py-xs border border-outline-variant rounded bg-surface hover:bg-surface-container-high transition-colors text-on-surface font-body-md text-sm cursor-pointer active:opacity-80">
+                    Connect GitHub
+                </button>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden cursor-pointer border border-outline-variant ml-sm">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A stylized, low-poly 3D avatar of a generic user profile. The aesthetic is modern and geometric, using a constrained palette of deep blues and subtle grays, aligning with a professional developer tool dark mode theme. The lighting is soft and directional, highlighting the facets of the low-poly mesh against a clean, dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhQIgBABbFNuvIQ4ipYauQBPfgykAwnuA2FmiHhzqbLb_Wv7IMxZ2Z-zQ3n9N07Vgp0jzdnwVXsrM67gDniLrhFUB-6aq_kdrQlUkqwSGClMHfDP8nWDlNbYWvLUoV5KFq2GwDXLL5VPdIqPLwGoCkzhM8svJRbI_STxOzY7K836A596B7V_rQtIXj4fF1F3tx7Vu4VW3rIgEW0zTg1ifJ5Yp7J2IiwBwijj5z9l73KjobXQOr1SwjjVbqeL4hWp29D-2ZbbUb48g"/>
+</div>
+</div>
+</header>
+<div class="p-lg md:p-xl max-w-container-max mx-auto w-full">
+<!-- Page Header -->
+<div class="mb-lg">
+<h2 class="font-display-lg text-display-lg text-on-surface mb-xs">Contribution History</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Review your lifetime impact and track your earned credits.</p>
+</div>
+<!-- Dashboard Layout Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+<!-- Main Content Column -->
+<div class="lg:col-span-2 space-y-lg">
+<!-- Progress Tracker / Reward Schedule -->
+<div class="bg-surface-container p-lg rounded-xl border border-outline-variant">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-md">Contribution Reward Schedule</h3>
+<div class="relative pt-md pb-xl">
+<!-- Progress Line -->
+<div class="absolute top-[42px] left-0 w-full h-1 bg-surface-variant rounded-full">
+<div class="absolute top-0 left-0 h-full bg-primary rounded-full w-[65%]"></div>
+</div>
+<!-- Milestones -->
+<div class="relative flex justify-between">
+<!-- Milestone 1: Signup -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary z-10 shadow-[0_0_10px_rgba(172,199,255,0.3)]">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface mt-sm">Signup</span>
+<span class="font-label-mono text-label-mono text-tertiary mt-xs">+5 cr</span>
+</div>
+<!-- Milestone 2: First 5 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary z-10 shadow-[0_0_10px_rgba(172,199,255,0.3)]">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface mt-sm">First 5 Stars</span>
+<span class="font-label-mono text-label-mono text-tertiary mt-xs">1 cr / ea</span>
+</div>
+<!-- Milestone 3: Ongoing -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-outline flex items-center justify-center text-on-surface-variant z-10">
+<span class="material-symbols-outlined text-[16px]">all_inclusive</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface-variant mt-sm">Ongoing</span>
+<span class="font-label-mono text-label-mono text-on-surface-variant mt-xs">0.5 cr / ea</span>
+</div>
+</div>
+</div>
+</div>
+<!-- History Log Table -->
+<div class="bg-surface-container rounded-xl border border-outline-variant overflow-hidden">
+<div class="px-md py-sm border-b border-outline-variant bg-surface-container-high flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Effective Contributions</h3>
+<button class="flex items-center gap-xs text-sm text-primary hover:text-primary-fixed-dim transition-colors">
+<span class="material-symbols-outlined text-[16px]">filter_list</span> Filter
+                            </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant bg-surface-container">
+<th class="py-sm px-md font-label-caps text-label-caps text-on-surface-variant">Repository</th>
+<th class="py-sm px-md font-label-caps text-label-caps text-on-surface-variant">Date</th>
+<th class="py-sm px-md font-label-caps text-label-caps text-on-surface-variant">Status</th>
+<th class="py-sm px-md font-label-caps text-label-caps text-on-surface-variant text-right">Credit Earned</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="py-md px-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors text-[20px]">book</span>
+<span class="font-label-mono text-label-mono text-on-surface">facebook/react</span>
+</div>
+</td>
+<td class="py-md px-md text-body-md text-on-surface-variant">Oct 24, 2023</td>
+<td class="py-md px-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-tertiary/10 text-tertiary text-xs font-medium border border-tertiary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Confirmed
+                                            </span>
+</td>
+<td class="py-md px-md text-right font-label-mono text-label-mono text-secondary-fixed">+1.0</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="py-md px-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors text-[20px]">book</span>
+<span class="font-label-mono text-label-mono text-on-surface">vuejs/core</span>
+</div>
+</td>
+<td class="py-md px-md text-body-md text-on-surface-variant">Oct 22, 2023</td>
+<td class="py-md px-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-tertiary/10 text-tertiary text-xs font-medium border border-tertiary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Confirmed
+                                            </span>
+</td>
+<td class="py-md px-md text-right font-label-mono text-label-mono text-secondary-fixed">+1.0</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="py-md px-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors text-[20px]">book</span>
+<span class="font-label-mono text-label-mono text-on-surface">sveltejs/svelte</span>
+</div>
+</td>
+<td class="py-md px-md text-body-md text-on-surface-variant">Oct 20, 2023</td>
+<td class="py-md px-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-surface-variant text-on-surface-variant text-xs font-medium border border-outline-variant">
+                                                Pending
+                                            </span>
+</td>
+<td class="py-md px-md text-right font-label-mono text-label-mono text-outline-variant">--</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="py-md px-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors text-[20px]">book</span>
+<span class="font-label-mono text-label-mono text-on-surface">vercel/next.js</span>
+</div>
+</td>
+<td class="py-md px-md text-body-md text-on-surface-variant">Oct 15, 2023</td>
+<td class="py-md px-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-tertiary/10 text-tertiary text-xs font-medium border border-tertiary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Confirmed
+                                            </span>
+</td>
+<td class="py-md px-md text-right font-label-mono text-label-mono text-secondary-fixed">+0.5</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Sidebar Column -->
+<div class="space-y-lg">
+<!-- Lifetime Impact Stats -->
+<div class="bg-surface-container p-lg rounded-xl border border-outline-variant flex flex-col items-center text-center">
+<div class="w-16 h-16 rounded-full bg-primary-container/20 flex items-center justify-center mb-md border border-primary/30">
+<span class="material-symbols-outlined text-primary text-[32px]" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Lifetime Impact</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">Total effective contributions across the network.</p>
+<div class="text-4xl font-label-mono text-label-mono text-primary font-bold">
+                            1,248
+                        </div>
+</div>
+<!-- Given vs Received -->
+<div class="bg-surface-container p-md rounded-xl border border-outline-variant">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-md uppercase tracking-wider">Exchange Ratio</h4>
+<div class="space-y-md">
+<div>
+<div class="flex justify-between items-center mb-xs">
+<span class="text-sm text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-[16px] text-tertiary">arrow_upward</span> Stars Given</span>
+<span class="font-label-mono text-label-mono text-on-surface">342</span>
+</div>
+<div class="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-[75%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-xs">
+<span class="text-sm text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-[16px] text-primary">arrow_downward</span> Stars Received</span>
+<span class="font-label-mono text-label-mono text-on-surface">114</span>
+</div>
+<div class="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[25%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Credit Balance Snippet -->
+<div class="bg-surface-bright p-md rounded-xl border border-outline-variant/50 relative overflow-hidden">
+<div class="absolute -right-4 -top-4 opacity-10 pointer-events-none">
+<span class="material-symbols-outlined text-[100px]" style="font-variation-settings: 'FILL' 1;">generating_tokens</span>
+</div>
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-sm">Available Credits</h4>
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary-fixed" style="font-variation-settings: 'FILL' 1;">toll</span>
+<span class="font-label-mono text-label-mono text-2xl text-on-surface">42.5</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden flex justify-between items-center w-full px-lg h-16 border-t border-outline-variant bg-surface-container-lowest sticky bottom-0 z-10">
+<a class="flex flex-col items-center gap-xs text-on-surface-variant hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="dashboard">dashboard</span>
+<span class="text-[10px] font-medium">Dashboard</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="star_rate">star_rate</span>
+<span class="text-[10px] font-medium">Tasks</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="terminal">terminal</span>
+<span class="text-[10px] font-medium">Repos</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-primary font-bold" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="history" style="font-variation-settings: 'FILL' 1;">history</span>
+<span class="text-[10px] font-medium border-b-2 border-primary pb-0.5">History</span>
+</a>
+</nav>
+</body></html>

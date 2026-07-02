@@ -1,0 +1,50 @@
+{
+  "project": {
+    "title": "StarBuddy Collaborative Growth Engine",
+    "id": "4842038490238045812"
+  },
+  "screens": [
+    {
+      "title": "Dashboard",
+      "id": "0d2c70ce35ae4565b6bbb43c80cc68d0",
+      "code": "dashboard/index.html",
+      "screenshot": "dashboard/screenshot.png"
+    },
+    {
+      "title": "StarBuddy PRD",
+      "id": "57cf83c8fb1b4fe5b6498804266059db",
+      "code": "starbuddy-prd/code.txt",
+      "screenshot": null
+    },
+    {
+      "title": "Contribution History",
+      "id": "6b3b5ba10f8844cb9c4bf0a9753874f8",
+      "code": "contribution-history/index.html",
+      "screenshot": "contribution-history/screenshot.png"
+    },
+    {
+      "title": "Star Task Pool",
+      "id": "97df6137516f4ea7b77c77042ad97476",
+      "code": "star-task-pool/index.html",
+      "screenshot": "star-task-pool/screenshot.png"
+    },
+    {
+      "title": "Design System",
+      "id": "asset-stub-assets_57a6fb5d3f204ddd94a97c59d3c978c4",
+      "code": "design-system/DESIGN.md",
+      "screenshot": null
+    },
+    {
+      "title": "Repository Management",
+      "id": "f78091e420a94d408c23a6127407ed83",
+      "code": "repository-management/index.html",
+      "screenshot": "repository-management/screenshot.png"
+    },
+    {
+      "title": "Login - StarBuddy",
+      "id": "070bcaeb97f1486ab5c25500bf54e5fc",
+      "code": "login-starbuddy/index.html",
+      "screenshot": "login-starbuddy/screenshot.png"
+    }
+  ]
+}
