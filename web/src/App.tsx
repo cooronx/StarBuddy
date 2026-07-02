@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   BadgeCheck,
   BookOpen,
   Clock3,
@@ -361,7 +363,7 @@ export function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-on-background">
+    <div className="flex h-screen overflow-hidden bg-background text-on-background">
       <Sidebar
         activeView={activeView}
         language={language}
@@ -369,7 +371,7 @@ export function App() {
         onViewChange={setView}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Topbar
           language={language}
           loading={loading}
@@ -380,7 +382,7 @@ export function App() {
           onRefresh={refresh}
         />
 
-        <main className="flex-1 overflow-y-auto bg-surface-container-lowest px-4 py-6 md:px-6 lg:px-10">
+        <main className="min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest px-4 py-6 md:px-6 lg:px-10">
           <div className="mx-auto max-w-container-max space-y-5">
             <MobileNav
               activeView={activeView}
@@ -428,7 +430,13 @@ export function App() {
               />
             ) : null}
             {activeView === 'history' ? (
-              <HistoryView language={language} ledger={ledger} t={t} user={user} />
+              <HistoryView
+                language={language}
+                ledger={ledger}
+                repositories={repositories}
+                t={t}
+                user={user}
+              />
             ) : null}
           </div>
         </main>
@@ -994,11 +1002,13 @@ function RepositoriesView({
 function HistoryView({
   language,
   ledger,
+  repositories,
   t,
   user,
 }: {
   language: Language;
   ledger: CreditLedgerEntry[];
+  repositories: GithubRepository[];
   t: Translator;
   user: User | null;
 }) {
@@ -1010,6 +1020,17 @@ function HistoryView({
       .filter((entry) => entry.amount < 0)
       .reduce((total, entry) => total + entry.amount, 0),
   );
+  const rewardEntries = ledger.filter(
+    (entry) => entry.reason === 'star_completed_reward' && entry.amount > 0,
+  );
+  const starsGiven = rewardEntries.length;
+  const receivedStars = getReceivedStars(repositories);
+  const starsReceived = repositories.reduce(
+    (total, repository) =>
+      total + (repository.submittedRepository?.starBuddyStarsCount ?? 0),
+    0,
+  );
+  const lifetimeImpact = starsGiven + starsReceived;
 
   return (
     <section className="space-y-5">
@@ -1022,39 +1043,502 @@ function HistoryView({
           '追踪积分收入、推广消耗和有效贡献记录。',
         )}
       />
-      <div className="grid gap-4 md:grid-cols-3">
-        <MetricBlock
-          icon={<WalletCards size={22} />}
-          label={t('credits')}
-          tone="text-secondary"
-          value={String(user?.creditsBalance ?? 0)}
-        />
-        <MetricBlock
-          icon={<ArrowRight size={22} />}
-          label={label(language, 'Earned', '已赚取')}
-          tone="text-tertiary"
-          value={`+${earned}`}
-        />
-        <MetricBlock
-          icon={<Star size={22} />}
-          label={label(language, 'Spent', '已消耗')}
-          tone="text-primary"
-          value={`-${spent}`}
-        />
-      </div>
 
-      <section className="surface-panel overflow-hidden">
-        <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-high px-4 py-3">
-          <SectionTitle
-            icon={<History size={18} />}
-            title={label(language, 'Effective Contributions', '有效贡献')}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <div className="space-y-5">
+          <HistoryRewardSchedule language={language} starsGiven={starsGiven} />
+          <EffectiveContributionsTable language={language} ledger={ledger} t={t} />
+          <StarsReceivedList
+            language={language}
+            receivedStars={receivedStars.slice(0, 3)}
           />
-          <span className="mono text-on-surface-variant">{ledger.length}</span>
         </div>
-        <LedgerList language={language} ledger={ledger} t={t} />
-      </section>
+
+        <aside className="space-y-5">
+          <LifetimeImpactCard language={language} value={lifetimeImpact} />
+          <ExchangeRatioCard
+            language={language}
+            starsGiven={starsGiven}
+            starsReceived={starsReceived}
+          />
+          <AvailableCreditsCard
+            availableCredits={user?.creditsBalance ?? 0}
+            earned={earned}
+            language={language}
+            spent={spent}
+            t={t}
+          />
+        </aside>
+      </div>
     </section>
   );
+}
+
+function HistoryRewardSchedule({
+  language,
+  starsGiven,
+}: {
+  language: Language;
+  starsGiven: number;
+}) {
+  const firstFiveComplete = Math.min(starsGiven, 5);
+  const progressWidth = Math.min(100, Math.max(18, (firstFiveComplete / 5) * 65));
+
+  return (
+    <section className="surface-panel p-5 md:p-6">
+      <h3 className="mb-6 text-lg font-semibold text-on-surface">
+        {label(language, 'Contribution Reward Schedule', '贡献奖励规则')}
+      </h3>
+      <div className="relative pb-2 pt-4">
+        <div className="absolute left-0 right-0 top-8 h-1 rounded-full bg-surface-variant">
+          <div
+            className="h-full rounded-full bg-primary"
+            style={{ width: `${progressWidth}%` }}
+          />
+        </div>
+        <div className="relative grid grid-cols-3 gap-3 text-center">
+          <RewardMilestone
+            active
+            icon={<BadgeCheck size={16} />}
+            label={label(language, 'Signup', '注册')}
+            value="+5 cr"
+          />
+          <RewardMilestone
+            active={starsGiven > 0}
+            icon={<Star size={16} fill="currentColor" />}
+            label={label(language, 'First 5 Stars', '前 5 次 Star')}
+            value="1 cr / ea"
+          />
+          <RewardMilestone
+            active={starsGiven > 5}
+            icon={<RefreshCw size={16} />}
+            label={label(language, 'Ongoing', '持续贡献')}
+            value={label(language, '1 cr / 2 stars', '每 2 次 1 积分')}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RewardMilestone({
+  active,
+  icon,
+  label: milestoneLabel,
+  value,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col items-center">
+      <div
+        className={`z-10 flex h-8 w-8 items-center justify-center rounded-full border ${
+          active
+            ? 'border-primary/30 bg-primary text-on-primary shadow-[0_0_12px_rgba(172,199,255,0.22)]'
+            : 'border-outline-variant bg-surface-variant text-on-surface-variant'
+        }`}
+      >
+        {icon}
+      </div>
+      <span
+        className={`label-caps mt-3 max-w-full truncate ${
+          active ? 'text-on-surface' : 'text-on-surface-variant'
+        }`}
+      >
+        {milestoneLabel}
+      </span>
+      <span className={`mono mt-2 ${active ? 'text-tertiary' : 'text-on-surface-variant'}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function EffectiveContributionsTable({
+  language,
+  ledger,
+  t,
+}: {
+  language: Language;
+  ledger: CreditLedgerEntry[];
+  t: Translator;
+}) {
+  if (ledger.length === 0) {
+    return (
+      <EmptyBlock
+        icon={<History size={32} />}
+        title={label(language, 'No effective contributions yet', '暂无有效贡献')}
+        description={t('noCreditActivity')}
+      />
+    );
+  }
+
+  return (
+    <section className="surface-panel overflow-hidden">
+      <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-high px-4 py-3">
+        <div className="flex items-center gap-2 text-on-surface">
+          <History className="text-primary" size={18} />
+          <h3 className="text-lg font-semibold">
+            {label(language, 'Effective Contributions', '有效贡献')}
+          </h3>
+        </div>
+        <span className="mono text-on-surface-variant">{ledger.length}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[680px] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-outline-variant bg-surface-container">
+              <th className="label-caps px-4 py-3 text-on-surface-variant">
+                {label(language, 'Source', '来源')}
+              </th>
+              <th className="label-caps px-4 py-3 text-on-surface-variant">
+                {label(language, 'Date', '日期')}
+              </th>
+              <th className="label-caps px-4 py-3 text-on-surface-variant">
+                {label(language, 'Status', '状态')}
+              </th>
+              <th className="label-caps px-4 py-3 text-right text-on-surface-variant">
+                {label(language, 'Credit', '积分')}
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-outline-variant">
+            {ledger.map((entry) => (
+              <tr
+                className="group transition hover:bg-surface-container-high"
+                key={entry.id}
+              >
+                <td className="px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <BookOpen
+                      className="shrink-0 text-outline transition group-hover:text-primary"
+                      size={18}
+                    />
+                    <div className="min-w-0">
+                      <strong className="block truncate text-sm text-on-surface">
+                        {formatLedgerReason(language, entry.reason)}
+                      </strong>
+                      <span className="mono mt-1 block truncate text-on-surface-variant">
+                        {entry.relatedEntityType ??
+                          label(language, 'Account', '账户')}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-sm text-on-surface-variant">
+                  {new Date(entry.createdAt).toLocaleDateString(
+                    language === 'zh' ? 'zh-CN' : 'en-US',
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <LedgerStatusBadge entry={entry} language={language} />
+                </td>
+                <td
+                  className={`mono px-4 py-3 text-right text-base ${ledgerAmountClass(
+                    entry.amount,
+                  )}`}
+                >
+                  {formatSignedAmount(entry.amount)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+type ReceivedStarItem = {
+  id: string;
+  actorAvatarUrl: string | null;
+  actorLogin: string;
+  repositoryName: string;
+  starredAt: string;
+};
+
+function getReceivedStars(repositories: GithubRepository[]): ReceivedStarItem[] {
+  return repositories
+    .flatMap((repository) => {
+      const submitted = repository.submittedRepository;
+      if (!submitted) {
+        return [];
+      }
+
+      const repositoryName = `${repository.githubOwner}/${repository.githubRepo}`;
+      return submitted.recentStars.map((star) => ({
+        id: `${submitted.id}:${star.id}`,
+        actorAvatarUrl: star.actor.avatarUrl,
+        actorLogin: star.actor.githubLogin,
+        repositoryName,
+        starredAt: star.starredAt,
+      }));
+    })
+    .sort(
+      (left, right) =>
+        Date.parse(right.starredAt) - Date.parse(left.starredAt),
+    );
+}
+
+function StarsReceivedList({
+  language,
+  receivedStars,
+}: {
+  language: Language;
+  receivedStars: ReceivedStarItem[];
+}) {
+  return (
+    <section className="surface-panel overflow-hidden">
+      <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-high px-4 py-3">
+        <div className="flex items-center gap-2 text-on-surface">
+          <Star className="text-primary" size={18} fill="currentColor" />
+          <h3 className="text-lg font-semibold">
+            {label(language, 'Stars Received', '收到的 Star')}
+          </h3>
+        </div>
+        <span className="mono text-on-surface-variant">
+          {receivedStars.length}
+        </span>
+      </div>
+
+      {receivedStars.length === 0 ? (
+        <div className="p-5">
+          <p className="text-sm leading-6 text-on-surface-variant">
+            {label(
+              language,
+              'No verified StarBuddy stars have landed on your promoted repositories yet.',
+              '你的推广仓库还没有收到通过 StarBuddy 验证的 Star。',
+            )}
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-outline-variant">
+          {receivedStars.map((star) => (
+            <div
+              className="flex items-center justify-between gap-4 p-4 transition hover:bg-surface-container-high"
+              key={star.id}
+            >
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-outline-variant bg-surface-variant text-on-surface-variant">
+                  {star.actorAvatarUrl ? (
+                    <img
+                      alt=""
+                      className="h-full w-full object-cover"
+                      src={star.actorAvatarUrl}
+                    />
+                  ) : (
+                    <Github size={16} />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <span className="mono block truncate text-on-surface">
+                    @{star.actorLogin}
+                  </span>
+                  <span className="block truncate text-xs text-on-surface-variant">
+                    {label(language, 'starred', '给')}{' '}
+                    <span className="text-primary">{star.repositoryName}</span>
+                    {language === 'zh' ? ' 点了 Star' : ''}
+                  </span>
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <span className="text-xs text-on-surface-variant">
+                  {formatRelativeTime(language, star.starredAt)}
+                </span>
+                <span className="inline-flex items-center rounded-full border border-tertiary/20 bg-tertiary/10 px-2 py-0.5 text-[10px] font-medium text-tertiary">
+                  {label(language, 'Verified', '已验证')}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LedgerStatusBadge({
+  entry,
+  language,
+}: {
+  entry: CreditLedgerEntry;
+  language: Language;
+}) {
+  const positive = entry.amount > 0;
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center gap-2 rounded-full border px-2 text-xs font-medium ${
+        positive
+          ? 'border-tertiary/30 bg-tertiary/10 text-tertiary'
+          : 'border-primary/30 bg-primary/10 text-primary'
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${positive ? 'bg-tertiary' : 'bg-primary'}`} />
+      {positive
+        ? label(language, 'Confirmed', '已确认')
+        : label(language, 'Exchanged', '已兑换')}
+    </span>
+  );
+}
+
+function LifetimeImpactCard({
+  language,
+  value,
+}: {
+  language: Language;
+  value: number;
+}) {
+  return (
+    <section className="surface-panel flex flex-col items-center p-6 text-center">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-primary/30 bg-primary-container/20 text-primary">
+        <Star size={30} fill="currentColor" />
+      </div>
+      <h3 className="text-lg font-semibold text-on-surface">
+        {label(language, 'Lifetime Impact', '长期影响力')}
+      </h3>
+      <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+        {label(
+          language,
+          'Total effective exchanges across the network.',
+          '你在网络中的有效贡献与兑换总量。',
+        )}
+      </p>
+      <strong className="mono mt-5 text-4xl text-primary">{value}</strong>
+    </section>
+  );
+}
+
+function ExchangeRatioCard({
+  language,
+  starsGiven,
+  starsReceived,
+}: {
+  language: Language;
+  starsGiven: number;
+  starsReceived: number;
+}) {
+  const maxValue = Math.max(starsGiven, starsReceived, 1);
+
+  return (
+    <section className="surface-panel p-4">
+      <h4 className="label-caps mb-4 text-on-surface-variant">
+        {label(language, 'Exchange Ratio', '交换比例')}
+      </h4>
+      <div className="space-y-4">
+        <RatioBar
+          icon={<ArrowUp size={16} />}
+          label={label(language, 'Stars Given', '给出的 Star')}
+          tone="bg-tertiary text-tertiary"
+          value={starsGiven}
+          width={(starsGiven / maxValue) * 100}
+        />
+        <RatioBar
+          icon={<ArrowDown size={16} />}
+          label={label(language, 'Stars Received', '收到的 Star')}
+          tone="bg-primary text-primary"
+          value={starsReceived}
+          width={(starsReceived / maxValue) * 100}
+        />
+      </div>
+    </section>
+  );
+}
+
+function RatioBar({
+  icon,
+  label: ratioLabel,
+  tone,
+  value,
+  width,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  tone: string;
+  value: number;
+  width: number;
+}) {
+  const [barTone, textTone] = tone.split(' ');
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className={`flex items-center gap-2 text-sm text-on-surface ${textTone}`}>
+          {icon}
+          {ratioLabel}
+        </span>
+        <span className="mono text-on-surface">{value}</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-surface-variant">
+        <div
+          className={`h-full rounded-full ${barTone}`}
+          style={{ width: `${Math.max(4, width)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AvailableCreditsCard({
+  availableCredits,
+  earned,
+  language,
+  spent,
+  t,
+}: {
+  availableCredits: number;
+  earned: number;
+  language: Language;
+  spent: number;
+  t: Translator;
+}) {
+  return (
+    <section className="surface-panel relative overflow-hidden bg-surface-bright p-4">
+      <div className="pointer-events-none absolute -right-8 -top-8 text-secondary opacity-10">
+        <WalletCards size={112} />
+      </div>
+      <h4 className="label-caps text-on-surface-variant">
+        {label(language, 'Available Credits', '可用积分')}
+      </h4>
+      <div className="relative mt-3 flex items-center gap-3">
+        <WalletCards className="text-secondary" size={22} />
+        <span className="mono text-3xl text-on-surface">{availableCredits}</span>
+        <span className="text-sm text-on-surface-variant">{t('creditUnit')}</span>
+      </div>
+      <div className="relative mt-4 grid grid-cols-2 gap-3 border-t border-outline-variant pt-4">
+        <div>
+          <p className="label-caps text-on-surface-variant">
+            {label(language, 'Earned', '已赚取')}
+          </p>
+          <span className="mono mt-1 block text-tertiary">+{earned}</span>
+        </div>
+        <div>
+          <p className="label-caps text-on-surface-variant">
+            {label(language, 'Spent', '已消耗')}
+          </p>
+          <span className="mono mt-1 block text-primary">-{spent}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function formatSignedAmount(amount: number) {
+  return `${amount > 0 ? '+' : ''}${amount}`;
+}
+
+function ledgerAmountClass(amount: number) {
+  if (amount > 0) {
+    return 'text-tertiary';
+  }
+
+  if (amount < 0) {
+    return 'text-primary';
+  }
+
+  return 'text-on-surface-variant';
 }
 
 function TaskPanel({
@@ -1725,6 +2209,40 @@ function formatDuration(milliseconds: number) {
   return [hours, minutes, seconds]
     .map((part) => part.toString().padStart(2, '0'))
     .join(':');
+}
+
+function formatRelativeTime(language: Language, value: string) {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return value;
+  }
+
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  const minute = 60;
+  const hour = minute * 60;
+  const day = hour * 24;
+
+  if (elapsedSeconds < minute) {
+    return label(language, 'Just now', '刚刚');
+  }
+
+  if (elapsedSeconds < hour) {
+    const minutes = Math.floor(elapsedSeconds / minute);
+    return language === 'zh' ? `${minutes} 分钟前` : `${minutes} min ago`;
+  }
+
+  if (elapsedSeconds < day) {
+    const hours = Math.floor(elapsedSeconds / hour);
+    return language === 'zh' ? `${hours} 小时前` : `${hours} hours ago`;
+  }
+
+  if (elapsedSeconds < day * 2) {
+    return label(language, 'Yesterday', '昨天');
+  }
+
+  return new Date(timestamp).toLocaleDateString(
+    language === 'zh' ? 'zh-CN' : 'en-US',
+  );
 }
 
 function label(language: Language, english: string, chinese: string) {
