@@ -173,12 +173,12 @@ VITE_API_BASE_URL=https://api.iroha.chat
 Useful production backend variables:
 
 ```env
-WEB_APP_URL="https://iroha.chat"
-CORS_ORIGINS="https://iroha.chat"
-ADMIN_GITHUB_LOGINS="your-github-login"
+WEB_APP_URL=https://iroha.chat
+CORS_ORIGINS=https://iroha.chat
+ADMIN_GITHUB_LOGINS=your-github-login
 STAR_TASKS_ENABLED=true
 REPOSITORY_PROMOTION_ENABLED=true
-HOST="0.0.0.0"
+HOST=0.0.0.0
 PORT=3000
 ```
 

@@ -178,26 +178,28 @@ nano .env
 
 ```env
 NODE_ENV=production
-DATABASE_URL="postgresql://starbuddy:REPLACE_WITH_STRONG_PASSWORD@starbuddy-postgres:5432/starbuddy?connection_limit=10&pool_timeout=20"
-JWT_SECRET="第 5 步生成的 JWT secret"
-CREDENTIAL_ENCRYPTION_KEY="第 5 步生成的 32-byte base64 key"
+DATABASE_URL=postgresql://starbuddy:REPLACE_WITH_STRONG_PASSWORD@starbuddy-postgres:5432/starbuddy?connection_limit=10&pool_timeout=20
+JWT_SECRET=第 5 步生成的 JWT secret
+CREDENTIAL_ENCRYPTION_KEY=第 5 步生成的 32-byte base64 key
 
-GITHUB_OAUTH_CLIENT_ID="先留空，创建 GitHub OAuth App 后再填"
-GITHUB_OAUTH_CLIENT_SECRET="先留空，创建 GitHub OAuth App 后再填"
-GITHUB_OAUTH_CALLBACK_URL="https://YOUR_BACKEND_DOMAIN/auth/github/callback"
+GITHUB_OAUTH_CLIENT_ID=先留空，创建 GitHub OAuth App 后再填
+GITHUB_OAUTH_CLIENT_SECRET=先留空，创建 GitHub OAuth App 后再填
+GITHUB_OAUTH_CALLBACK_URL=https://YOUR_BACKEND_DOMAIN/auth/github/callback
 
-WEB_APP_URL="https://YOUR_FRONTEND_DOMAIN"
-CORS_ORIGINS="https://YOUR_FRONTEND_DOMAIN"
-ADMIN_GITHUB_LOGINS="你的 GitHub login"
+WEB_APP_URL=https://YOUR_FRONTEND_DOMAIN
+CORS_ORIGINS=https://YOUR_FRONTEND_DOMAIN
+ADMIN_GITHUB_LOGINS=你的 GitHub login
 
 STAR_TASKS_ENABLED=true
 REPOSITORY_PROMOTION_ENABLED=true
 GITHUB_REQUEST_TIMEOUT_MS=10000
 CLEANUP_INTERVAL_MS=21600000
 
-HOST="0.0.0.0"
+HOST=0.0.0.0
 PORT=3000
 ```
+
+这份 `.env` 会通过 `docker run --env-file .env` 传给容器，不要给值加双引号；Docker 会把引号也当作环境变量值的一部分。
 
 注意 `DATABASE_URL` 的 host 是 `starbuddy-postgres`，这是数据库容器名。不要写 `127.0.0.1`，因为后端容器里的 `127.0.0.1` 指向后端容器自己。
 
@@ -412,9 +414,9 @@ https://iroha.chat
 如果你一开始 `.env` 里用的是临时前端域名，现在改成 Vercel 最终域名：
 
 ```env
-WEB_APP_URL="https://iroha.chat"
-CORS_ORIGINS="https://iroha.chat"
-GITHUB_OAUTH_CALLBACK_URL="https://api.iroha.chat/auth/github/callback"
+WEB_APP_URL=https://iroha.chat
+CORS_ORIGINS=https://iroha.chat
+GITHUB_OAUTH_CALLBACK_URL=https://api.iroha.chat/auth/github/callback
 ```
 
 确认 GitHub OAuth App：
