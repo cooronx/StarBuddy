@@ -1,21 +1,53 @@
-# StarBuddy 单机后端 + 自建 PostgreSQL 上线教程
+# StarBuddy 生产部署教程：Docker 数据库 + 独立前后端
 
-这份教程按你的部署方式写：
+这份教程按下面的部署方式写：
 
-- 后端：部署在你自己的 Linux 主机上，用 Docker 跑
-- 数据库：同一台主机上的 PostgreSQL
-- 前端：Vite React，部署到 Vercel
+- 数据库：PostgreSQL 跑在 Docker 容器里，使用 Docker volume 持久化数据
+- 后端：NestJS API 跑在单独的 Docker 容器里
+- 前端：Vite React 单独部署到 Vercel
 - OAuth：GitHub OAuth App
 
-因为后端和数据库在同一台主机，PostgreSQL 不需要暴露公网，`DATABASE_URL` 使用 `127.0.0.1`。
+数据库不暴露公网。后端和数据库加入同一个 Docker network，后端通过容器名 `starbuddy-postgres` 连接数据库。
 
 ## 上线速查
+
+创建 Docker network：
+
+```bash
+docker network create starbuddy-net
+```
+
+启动数据库：
+
+```bash
+docker run -d \
+  --name starbuddy-postgres \
+  --restart unless-stopped \
+  --network starbuddy-net \
+  -e POSTGRES_USER=starbuddy \
+  -e POSTGRES_PASSWORD=REPLACE_WITH_STRONG_PASSWORD \
+  -e POSTGRES_DB=starbuddy \
+  -v starbuddy-postgres-data:/var/lib/postgresql/data \
+  postgres:16
+```
 
 后端构建和启动：
 
 ```bash
 docker build -t starbuddy-api .
-docker run -d --name starbuddy-api --restart unless-stopped --env-file .env --network host starbuddy-api
+docker run -d \
+  --name starbuddy-api \
+  --restart unless-stopped \
+  --network starbuddy-net \
+  --env-file .env \
+  -p 127.0.0.1:3000:3000 \
+  starbuddy-api
+```
+
+前端在 Vercel 单独部署，环境变量：
+
+```env
+VITE_API_BASE_URL=https://YOUR_BACKEND_DOMAIN
 ```
 
 后端健康检查：
@@ -23,38 +55,6 @@ docker run -d --name starbuddy-api --restart unless-stopped --env-file .env --ne
 ```txt
 https://YOUR_BACKEND_DOMAIN/health
 ```
-
-前端构建输出：
-
-```bash
-cd web
-npm ci
-npm run build
-```
-
-```txt
-web/dist
-```
-
-生产环境必填后端变量：
-
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `CREDENTIAL_ENCRYPTION_KEY`
-- `GITHUB_OAUTH_CLIENT_ID`
-- `GITHUB_OAUTH_CLIENT_SECRET`
-- `GITHUB_OAUTH_CALLBACK_URL`
-- `WEB_APP_URL`
-- `CORS_ORIGINS`
-- `ADMIN_GITHUB_LOGINS`
-- `HOST=0.0.0.0`
-- `PORT=3000`
-
-生产环境常用开关：
-
-- `STAR_TASKS_ENABLED=false` 会停止新的任务领取和点星执行
-- `REPOSITORY_PROMOTION_ENABLED=false` 会停止新的仓库提交、激活和恢复
-- `MOCK_GITHUB` 不允许在生产环境开启
 
 ## 0. 最终地址
 
@@ -66,11 +66,7 @@ web/dist
 GitHub OAuth Callback: https://YOUR_BACKEND_DOMAIN/auth/github/callback
 ```
 
-后端健康检查：
-
-```txt
-https://YOUR_BACKEND_DOMAIN/health
-```
+前端只访问后端公网域名。数据库只允许后端容器访问，不需要公网端口。
 
 ## 1. 准备服务器
 
@@ -79,28 +75,19 @@ https://YOUR_BACKEND_DOMAIN/health
 - Ubuntu / Debian
 - 一个公网 IP
 - 已安装 Docker
-- 已安装 PostgreSQL
 - 后端公网域名已解析到这台服务器，比如 `api.example.com`
 
 安装基础工具：
 
 ```bash
 sudo apt update
-sudo apt install -y git openssl postgresql postgresql-contrib
+sudo apt install -y git openssl
 ```
 
 安装 Docker 可以参考 Docker 官方文档。安装完成后确认：
 
 ```bash
 docker --version
-```
-
-启动 PostgreSQL：
-
-```bash
-sudo systemctl enable postgresql
-sudo systemctl start postgresql
-sudo systemctl status postgresql
 ```
 
 ## 2. Clone 项目
@@ -112,43 +99,51 @@ cd StarBuddy
 
 如果这是你本地改完还没推到 GitHub 的代码，先在本地提交并推送，再在服务器上 clone 或 pull。
 
-## 3. 创建 PostgreSQL 数据库
+## 3. 创建 Docker 网络
 
-进入 PostgreSQL：
-
-```bash
-sudo -u postgres psql
-```
-
-创建用户和数据库：
-
-```sql
-create user starbuddy with password 'REPLACE_WITH_STRONG_PASSWORD';
-create database starbuddy owner starbuddy;
-grant all privileges on database starbuddy to starbuddy;
-```
-
-退出：
-
-```sql
-\q
-```
-
-验证数据库连接：
+后端和数据库使用同一个私有 Docker network：
 
 ```bash
-psql "postgresql://starbuddy:REPLACE_WITH_STRONG_PASSWORD@127.0.0.1:5432/starbuddy"
+docker network create starbuddy-net
 ```
 
-进入后运行：
+如果提示 network 已存在，可以忽略。
 
-```sql
-select now();
+## 4. 启动 PostgreSQL Docker 容器
+
+生成一个强密码，后面会同时用于数据库容器和后端 `DATABASE_URL`：
+
+```bash
+openssl rand -hex 24
+```
+
+这里建议用 hex，避免密码里出现需要在 URL 中转义的字符。
+
+启动数据库：
+
+```bash
+docker run -d \
+  --name starbuddy-postgres \
+  --restart unless-stopped \
+  --network starbuddy-net \
+  -e POSTGRES_USER=starbuddy \
+  -e POSTGRES_PASSWORD=REPLACE_WITH_STRONG_PASSWORD \
+  -e POSTGRES_DB=starbuddy \
+  -v starbuddy-postgres-data:/var/lib/postgresql/data \
+  postgres:16
+```
+
+这里没有使用 `-p 5432:5432`，所以数据库不会暴露到公网。
+
+验证数据库容器：
+
+```bash
+docker exec -it starbuddy-postgres psql -U starbuddy -d starbuddy -c "select now();"
 ```
 
 能返回时间就说明数据库正常。
 
-## 4. 生成生产密钥
+## 5. 生成生产密钥
 
 生成 JWT secret：
 
@@ -170,7 +165,7 @@ CREDENTIAL_ENCRYPTION_KEY=...
 
 它必须是 base64 编码后的 32-byte key。
 
-## 5. 创建后端 `.env`
+## 6. 创建后端 `.env`
 
 在项目根目录创建 `.env`：
 
@@ -183,9 +178,9 @@ nano .env
 
 ```env
 NODE_ENV=production
-DATABASE_URL="postgresql://starbuddy:REPLACE_WITH_STRONG_PASSWORD@127.0.0.1:5432/starbuddy?connection_limit=10&pool_timeout=20"
-JWT_SECRET="第 4 步生成的 JWT secret"
-CREDENTIAL_ENCRYPTION_KEY="第 4 步生成的 32-byte base64 key"
+DATABASE_URL="postgresql://starbuddy:REPLACE_WITH_STRONG_PASSWORD@starbuddy-postgres:5432/starbuddy?connection_limit=10&pool_timeout=20"
+JWT_SECRET="第 5 步生成的 JWT secret"
+CREDENTIAL_ENCRYPTION_KEY="第 5 步生成的 32-byte base64 key"
 
 GITHUB_OAUTH_CLIENT_ID="先留空，创建 GitHub OAuth App 后再填"
 GITHUB_OAUTH_CLIENT_SECRET="先留空，创建 GitHub OAuth App 后再填"
@@ -204,6 +199,8 @@ HOST="0.0.0.0"
 PORT=3000
 ```
 
+注意 `DATABASE_URL` 的 host 是 `starbuddy-postgres`，这是数据库容器名。不要写 `127.0.0.1`，因为后端容器里的 `127.0.0.1` 指向后端容器自己。
+
 先不知道前端域名也没关系，Vercel 部署完成后回来改：
 
 ```env
@@ -211,7 +208,7 @@ WEB_APP_URL
 CORS_ORIGINS
 ```
 
-## 6. 构建并启动后端 Docker
+## 7. 构建并启动后端 Docker
 
 在项目根目录构建镜像：
 
@@ -219,18 +216,19 @@ CORS_ORIGINS
 docker build -t starbuddy-api .
 ```
 
-启动容器：
+启动后端容器：
 
 ```bash
 docker run -d \
   --name starbuddy-api \
   --restart unless-stopped \
+  --network starbuddy-net \
   --env-file .env \
-  --network host \
+  -p 127.0.0.1:3000:3000 \
   starbuddy-api
 ```
 
-这里使用 `--network host`，是为了让容器里的后端可以通过 `127.0.0.1:5432` 连接同一台主机上的 PostgreSQL。
+这里把后端端口只绑定到服务器本机 `127.0.0.1:3000`，再由 Nginx 或 Caddy 对外提供 HTTPS。
 
 查看日志：
 
@@ -246,7 +244,7 @@ npx prisma migrate deploy && node dist/main.js
 
 也就是先跑数据库迁移，再启动后端。
 
-## 7. 配置反向代理和 HTTPS
+## 8. 配置反向代理和 HTTPS
 
 后端容器监听：
 
@@ -287,7 +285,7 @@ server {
 
 Nginx 的 HTTPS 可以用 Certbot 配置。
 
-## 8. 验证后端
+## 9. 验证后端
 
 访问：
 
@@ -307,7 +305,7 @@ https://YOUR_BACKEND_DOMAIN/health
 }
 ```
 
-如果失败，先看容器日志：
+如果失败，先看后端日志：
 
 ```bash
 docker logs -f starbuddy-api
@@ -316,11 +314,24 @@ docker logs -f starbuddy-api
 常见原因：
 
 - `.env` 里的 `DATABASE_URL` 密码错
-- PostgreSQL 没启动
-- Docker 没用 `--network host`
+- 数据库容器没启动
+- 后端和数据库不在同一个 Docker network
+- `DATABASE_URL` 仍然写成了 `127.0.0.1`
 - Prisma migration 失败
 
-## 9. 创建 GitHub OAuth App
+也可以从后端容器里检查是否能解析数据库容器名：
+
+```bash
+docker exec -it starbuddy-api sh
+```
+
+进入容器后：
+
+```sh
+node -e "require('dns').lookup('starbuddy-postgres', console.log)"
+```
+
+## 10. 创建 GitHub OAuth App
 
 打开 GitHub：
 
@@ -356,12 +367,15 @@ docker rm -f starbuddy-api
 docker run -d \
   --name starbuddy-api \
   --restart unless-stopped \
+  --network starbuddy-net \
   --env-file .env \
-  --network host \
+  -p 127.0.0.1:3000:3000 \
   starbuddy-api
 ```
 
-## 10. 部署前端到 Vercel
+## 11. 部署前端到 Vercel
+
+前端和后端分开部署。Vercel 只负责 `web/` 目录里的 Vite React 应用。
 
 1. 打开 Vercel Dashboard。
 2. Add New -> Project。
@@ -376,7 +390,7 @@ web
 环境变量：
 
 ```env
-VITE_API_BASE_URL=https://YOUR_BACKEND_DOMAIN
+VITE_API_BASE_URL=https://api.iroha.chat
 ```
 
 构建配置：
@@ -390,37 +404,37 @@ Output Directory: dist
 部署完成后拿到：
 
 ```txt
-https://YOUR_FRONTEND_DOMAIN
+https://iroha.chat
 ```
 
-## 11. 回填最终域名
+## 12. 回填最终域名
 
 如果你一开始 `.env` 里用的是临时前端域名，现在改成 Vercel 最终域名：
 
 ```env
-WEB_APP_URL="https://YOUR_FRONTEND_DOMAIN"
-CORS_ORIGINS="https://YOUR_FRONTEND_DOMAIN"
-GITHUB_OAUTH_CALLBACK_URL="https://YOUR_BACKEND_DOMAIN/auth/github/callback"
+WEB_APP_URL="https://iroha.chat"
+CORS_ORIGINS="https://iroha.chat"
+GITHUB_OAUTH_CALLBACK_URL="https://api.iroha.chat/auth/github/callback"
 ```
 
 确认 GitHub OAuth App：
 
 ```txt
-Homepage URL = https://YOUR_FRONTEND_DOMAIN
-Authorization callback URL = https://YOUR_BACKEND_DOMAIN/auth/github/callback
+Homepage URL = https://iroha.chat
+Authorization callback URL = https://api.iroha.chat/auth/github/callback
 ```
 
 确认 Vercel：
 
 ```env
-VITE_API_BASE_URL=https://YOUR_BACKEND_DOMAIN
+VITE_API_BASE_URL=https://api.iroha.chat
 ```
 
 然后重启后端，重新部署前端。
 
-## 12. 首次上线验收
+## 13. 首次上线验收
 
-### 12.1 后端健康检查
+### 13.1 后端健康检查
 
 ```txt
 https://YOUR_BACKEND_DOMAIN/health
@@ -428,7 +442,7 @@ https://YOUR_BACKEND_DOMAIN/health
 
 必须是 `status: ok`。
 
-### 12.2 前端打开
+### 13.2 前端打开
 
 ```txt
 https://YOUR_FRONTEND_DOMAIN
@@ -436,7 +450,7 @@ https://YOUR_FRONTEND_DOMAIN
 
 应该看到 StarBuddy 登录前引导页。
 
-### 12.3 GitHub 登录
+### 13.3 GitHub 登录
 
 点击 GitHub 登录。
 
@@ -449,14 +463,14 @@ The redirect_uri is not associated with this application.
 检查这两个必须完全一致：
 
 ```env
-GITHUB_OAUTH_CALLBACK_URL=https://YOUR_BACKEND_DOMAIN/auth/github/callback
+GITHUB_OAUTH_CALLBACK_URL=https://api.iroha.chat/auth/github/callback
 ```
 
 ```txt
-GitHub OAuth App Authorization callback URL=https://YOUR_BACKEND_DOMAIN/auth/github/callback
+GitHub OAuth App Authorization callback URL=https://api.iroha.chat/auth/github/callback
 ```
 
-### 12.4 管理员权限
+### 13.4 管理员权限
 
 登录用的 GitHub login 必须在：
 
@@ -466,13 +480,13 @@ ADMIN_GITHUB_LOGINS=你的 GitHub login
 
 登录后右侧应该能看到 Admin 面板。
 
-### 12.5 提交仓库
+### 13.5 提交仓库
 
 进入“你的项目”，只能从 GitHub 公开仓库列表里点提交。
 
 第一版不支持手动输入 URL。
 
-### 12.6 执行任务
+### 13.6 执行任务
 
 至少需要两个不同用户、两个不同仓库，才能互相推荐。
 
@@ -483,7 +497,7 @@ ADMIN_GITHUB_LOGINS=你的 GitHub login
 - 每个用户每天最多完成 30 个 rewarded star
 - 每个仓库每天最多接收 30 个 rewarded star
 
-## 13. 常见问题
+## 14. 常见问题
 
 ### 前端请求后端失败
 
@@ -513,16 +527,24 @@ docker logs -f starbuddy-api
 常见原因：
 
 - `DATABASE_URL` 错
-- PostgreSQL 没启动
+- 数据库容器没启动
 - 数据库用户密码错
-- 数据库用户权限不足
-- Docker 没有使用 `--network host`
+- 后端容器没有加入 `starbuddy-net`
+- `DATABASE_URL` 使用了 `127.0.0.1` 或 `localhost`
 
-可以在服务器本机验证：
+验证数据库容器：
 
 ```bash
-psql "postgresql://starbuddy:REPLACE_WITH_STRONG_PASSWORD@127.0.0.1:5432/starbuddy"
+docker exec -it starbuddy-postgres psql -U starbuddy -d starbuddy -c "select now();"
 ```
+
+验证后端和数据库在同一个网络：
+
+```bash
+docker network inspect starbuddy-net
+```
+
+输出里应该同时能看到 `starbuddy-postgres` 和 `starbuddy-api`。
 
 ### 想临时关闭任务系统
 
@@ -548,7 +570,7 @@ REPOSITORY_PROMOTION_ENABLED=false
 
 这样用户不能提交、激活、恢复推广仓库，但可以暂停现有 active 仓库。
 
-## 14. 更新后端版本
+## 15. 更新后端版本
 
 以后代码更新后，在服务器上：
 
@@ -559,33 +581,39 @@ docker rm -f starbuddy-api
 docker run -d \
   --name starbuddy-api \
   --restart unless-stopped \
+  --network starbuddy-net \
   --env-file .env \
-  --network host \
+  -p 127.0.0.1:3000:3000 \
   starbuddy-api
 ```
 
-## 15. 数据库备份
+数据库容器和 volume 不需要重建。后端启动时会自动执行 `npx prisma migrate deploy`。
+
+## 16. 数据库备份
 
 手动备份：
 
 ```bash
-pg_dump "postgresql://starbuddy:REPLACE_WITH_STRONG_PASSWORD@127.0.0.1:5432/starbuddy" > starbuddy-backup.sql
+docker exec starbuddy-postgres pg_dump -U starbuddy -d starbuddy > starbuddy-backup.sql
 ```
 
 恢复：
 
 ```bash
-psql "postgresql://starbuddy:REPLACE_WITH_STRONG_PASSWORD@127.0.0.1:5432/starbuddy" < starbuddy-backup.sql
+docker exec -i starbuddy-postgres psql -U starbuddy -d starbuddy < starbuddy-backup.sql
 ```
 
 建议后续加定时备份，不要只依赖手动备份。
 
-## 16. 上线前最后清单
+## 17. 上线前最后清单
 
-- PostgreSQL 已启动
-- `starbuddy` 数据库和用户已创建
-- `.env` 已配置
-- Docker 后端已启动
+- Docker 已安装
+- `starbuddy-net` 已创建
+- `starbuddy-postgres` 数据库容器已启动
+- 数据库使用 `starbuddy-postgres-data` volume 持久化
+- 后端 `.env` 已配置
+- `DATABASE_URL` 指向 `starbuddy-postgres:5432`
+- `starbuddy-api` 后端容器已启动
 - 后端 `/health` 正常
 - 后端域名 HTTPS 正常
 - GitHub OAuth callback 完全匹配

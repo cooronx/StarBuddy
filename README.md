@@ -161,20 +161,20 @@ npx prisma migrate deploy
 Set the production GitHub OAuth callback URL to the backend URL exactly:
 
 ```txt
-https://YOUR_BACKEND_DOMAIN/auth/github/callback
+https://api.iroha.chat/auth/github/callback
 ```
 
 Set the frontend API base URL:
 
 ```env
-VITE_API_BASE_URL=https://YOUR_BACKEND_DOMAIN
+VITE_API_BASE_URL=https://api.iroha.chat
 ```
 
 Useful production backend variables:
 
 ```env
-WEB_APP_URL="https://YOUR_FRONTEND_DOMAIN"
-CORS_ORIGINS="https://YOUR_FRONTEND_DOMAIN"
+WEB_APP_URL="https://iroha.chat"
+CORS_ORIGINS="https://iroha.chat"
 ADMIN_GITHUB_LOGINS="your-github-login"
 STAR_TASKS_ENABLED=true
 REPOSITORY_PROMOTION_ENABLED=true
