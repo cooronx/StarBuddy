@@ -6,6 +6,7 @@ import {
   BadgeCheck,
   BookOpen,
   Clock3,
+  CircleHelp,
   Flag,
   Github,
   History,
@@ -22,6 +23,7 @@ import {
   Star,
   Terminal,
   WalletCards,
+  X,
 } from 'lucide-react';
 import {
   API_BASE_URL,
@@ -193,8 +195,16 @@ export function App() {
   }, [api, t]);
 
   function setView(view: View) {
+    setMessage('');
+    setError('');
     setActiveView(view);
     window.history.replaceState({}, '', `#${view}`);
+  }
+
+  async function handleRefresh() {
+    setMessage('');
+    setError('');
+    await refresh();
   }
 
   function handleLogin() {
@@ -362,6 +372,8 @@ export function App() {
         message={message}
         mockUsers={mockUsers}
         t={t}
+        onDismissError={() => setError('')}
+        onDismissMessage={() => setMessage('')}
         onLanguageChange={handleLanguageChange}
         onLogin={handleLogin}
         onMockLogin={handleMockLogin}
@@ -387,7 +399,7 @@ export function App() {
           t={t}
           onLanguageChange={handleLanguageChange}
           onLogout={handleLogout}
-          onRefresh={refresh}
+          onRefresh={handleRefresh}
         />
 
         <main className="min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest px-4 py-6 md:px-6 lg:px-10">
@@ -397,7 +409,12 @@ export function App() {
               language={language}
               onViewChange={setView}
             />
-            <FlashMessages error={error} message={message} />
+            <FlashMessages
+              error={error}
+              message={message}
+              onDismissError={() => setError('')}
+              onDismissMessage={() => setMessage('')}
+            />
             {activeView === 'dashboard' ? (
               <DashboardView
                 language={language}
@@ -409,7 +426,7 @@ export function App() {
                 user={user}
                 onGoRepositories={() => setView('repositories')}
                 onGoTasks={() => setView('tasks')}
-                onRefresh={refresh}
+                onRefresh={handleRefresh}
               />
             ) : null}
             {activeView === 'tasks' ? (
@@ -419,7 +436,7 @@ export function App() {
                 task={currentTask}
                 t={t}
                 user={user}
-                onRefresh={refresh}
+                onRefresh={handleRefresh}
                 onReport={handleReportRepository}
                 onStar={handleStar}
               />
@@ -460,6 +477,8 @@ function LoginScreen({
   message,
   mockUsers,
   t,
+  onDismissError,
+  onDismissMessage,
   onLanguageChange,
   onLogin,
   onMockLogin,
@@ -470,6 +489,8 @@ function LoginScreen({
   message: string;
   mockUsers: MockUser[];
   t: Translator;
+  onDismissError: () => void;
+  onDismissMessage: () => void;
   onLanguageChange: (language: Language) => void;
   onLogin: () => void;
   onMockLogin: (login: string) => void;
@@ -522,7 +543,12 @@ function LoginScreen({
           </div>
 
           <section className="surface-panel-low p-5 md:p-6">
-            <FlashMessages error={error} message={message} />
+            <FlashMessages
+              error={error}
+              message={message}
+              onDismissError={onDismissError}
+              onDismissMessage={onDismissMessage}
+            />
             <div className="mb-6 flex items-start gap-3">
               <Github className="mt-1 text-primary" size={24} />
               <div>
@@ -594,8 +620,8 @@ function Sidebar({
   return (
     <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-outline-variant bg-surface-container-low p-4 md:flex">
       <div className="mb-6 px-2">
-        <h1 className="text-2xl font-semibold text-on-surface">Developer Portal</h1>
-        <p className="label-caps mt-1 text-on-surface-variant">Star Coordination</p>
+        <h1 className="text-2xl font-semibold text-on-surface">StarBuddy</h1>
+        <p className="label-caps mt-1 text-on-surface-variant">Github互赞项目</p>
       </div>
       <nav className="flex-1 space-y-1">
         {views.map((view) => {
@@ -650,7 +676,6 @@ function Topbar({
       </div>
       <div className="hidden min-w-0 items-center gap-3 md:flex">
         <p className="label-caps text-on-surface-variant">
-          {label(language, 'Collaborative Growth Engine', '协作增长引擎')}
         </p>
         <ActivePromotionPill
           language={language}
@@ -761,6 +786,7 @@ function DashboardView({
   onGoTasks: () => void;
   onRefresh: () => void;
 }) {
+  const [showCreditHelp, setShowCreditHelp] = useState(false);
   const submitted = repositories.filter((repo) => repo.submittedRepository);
   const active = submitted.find((repo) => repo.submittedRepository?.status === 'active');
   const earned = ledger
@@ -783,9 +809,19 @@ function DashboardView({
           '追踪你完成任务和推广仓库之间的积分流转。',
         )}
         right={
-          <div className="flex items-center gap-2 text-sm text-tertiary">
-            <span className="h-2 w-2 rounded-full bg-tertiary" />
-            {label(language, 'System Online', '系统在线')}
+          <div className="flex items-center gap-3">
+            <button
+              aria-label={label(language, 'How StarBuddy works', 'StarBuddy 如何运作')}
+              className="icon-button"
+              type="button"
+              onClick={() => setShowCreditHelp(true)}
+            >
+              <CircleHelp size={18} />
+            </button>
+            <div className="flex items-center gap-2 text-sm text-tertiary">
+              <span className="h-2 w-2 rounded-full bg-tertiary" />
+              {label(language, 'System Online', '系统在线')}
+            </div>
           </div>
         }
       />
@@ -865,7 +901,137 @@ function DashboardView({
         </div>
         <LedgerList language={language} ledger={ledger.slice(0, 5)} t={t} />
       </section>
+
+      {showCreditHelp ? (
+        <CreditHelpDialog
+          language={language}
+          onClose={() => setShowCreditHelp(false)}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function CreditHelpDialog({
+  language,
+  onClose,
+}: {
+  language: Language;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const sections = [
+    {
+      title: label(language, 'What are credits?', '积分是什么'),
+      body: label(
+        language,
+        'Credits are the promotion budget for your own repository.',
+        '积分是你推广自己仓库的额度。',
+      ),
+    },
+    {
+      title: label(language, 'How credits are spent', '积分怎么花'),
+      body: label(
+        language,
+        'When your active repository receives 1 eligible StarBuddy star, it spends 1 credit.',
+        '你的 active 仓库每收到 1 个有效 StarBuddy Star，会消耗 1 积分。',
+      ),
+    },
+    {
+      title: label(language, 'How credits are earned', '积分怎么赚'),
+      body: label(
+        language,
+        'Star eligible recommended repositories to earn credits: the first 5 effective stars earn +1 each, then every 2 effective stars earn +1.',
+        '给推荐仓库点有效 Star 可以赚积分：前 5 次有效 Star 每次 +1，之后每 2 次有效 Star +1。',
+      ),
+    },
+    {
+      title: label(language, 'How to star others', '如何给别人点 Star'),
+      body: label(
+        language,
+        'Open Tasks, load a recommendation, review the repository, then click Star. Repositories you already starred do not earn credits again.',
+        '进入 Tasks，加载推荐项目，确认仓库后点击 Star。已经 Star 过的项目不会重复获得积分。',
+      ),
+    },
+  ];
+
+  return (
+    <div
+      aria-labelledby="credit-help-title"
+      aria-modal="true"
+      className="fixed inset-0 z-50 grid place-items-center bg-background/72 px-4 py-6 backdrop-blur-sm"
+      role="dialog"
+      onMouseDown={onClose}
+    >
+      <div
+        className="surface-panel w-full max-w-lg overflow-hidden bg-surface-container-high shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-outline-variant px-5 py-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+              <CircleHelp size={19} />
+            </span>
+            <div>
+              <p className="label-caps text-primary">
+                {label(language, 'Credit Guide', '积分指南')}
+              </p>
+              <h2
+                className="mt-1 text-xl font-semibold leading-tight text-on-surface"
+                id="credit-help-title"
+              >
+                {label(language, 'How StarBuddy Works', 'StarBuddy 如何运作')}
+              </h2>
+            </div>
+          </div>
+          <button
+            aria-label={label(language, 'Close', '关闭')}
+            className="icon-button h-9 w-9 shrink-0"
+            type="button"
+            onClick={onClose}
+          >
+            <X size={17} />
+          </button>
+        </div>
+
+        <div className="space-y-5 px-5 py-5">
+          {sections.map((section, index) => (
+            <section
+              className="grid grid-cols-[1.5rem_1fr] gap-3"
+              key={section.title}
+            >
+              <span className="mono pt-0.5 text-on-surface-variant">
+                {index + 1}
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold text-on-surface">
+                  {section.title}
+                </h3>
+                <p className="mt-1 text-sm leading-6 text-on-surface-variant">
+                  {section.body}
+                </p>
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <div className="flex justify-end border-t border-outline-variant bg-surface-container px-5 py-4">
+          <button className="primary-button" type="button" onClick={onClose}>
+            {label(language, 'Got it', '知道了')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2109,7 +2275,17 @@ function LoadingBlock({ text }: { text: string }) {
   );
 }
 
-function FlashMessages({ error, message }: { error: string; message: string }) {
+function FlashMessages({
+  error,
+  message,
+  onDismissError,
+  onDismissMessage,
+}: {
+  error: string;
+  message: string;
+  onDismissError: () => void;
+  onDismissMessage: () => void;
+}) {
   if (!error && !message) {
     return null;
   }
@@ -2117,13 +2293,29 @@ function FlashMessages({ error, message }: { error: string; message: string }) {
   return (
     <div className="space-y-2">
       {message ? (
-        <div className="rounded-lg border border-tertiary/30 bg-tertiary/10 px-4 py-3 text-sm text-tertiary">
-          {message}
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-tertiary/30 bg-tertiary/10 px-4 py-3 text-sm text-tertiary">
+          <span>{message}</span>
+          <button
+            aria-label="Dismiss message"
+            className="-mr-1 mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-tertiary transition hover:bg-tertiary/10 hover:text-on-surface active:scale-[0.96]"
+            type="button"
+            onClick={onDismissMessage}
+          >
+            <X size={14} />
+          </button>
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-error">
-          {error}
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-sm text-error">
+          <span>{error}</span>
+          <button
+            aria-label="Dismiss error"
+            className="-mr-1 mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-error transition hover:bg-error/10 hover:text-on-surface active:scale-[0.96]"
+            type="button"
+            onClick={onDismissError}
+          >
+            <X size={14} />
+          </button>
         </div>
       ) : null}
     </div>

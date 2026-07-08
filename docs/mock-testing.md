@@ -13,9 +13,31 @@ ADMIN_GITHUB_LOGINS="mock-admin"
 
 Mock mode is blocked in production. If `NODE_ENV=production` and `MOCK_GITHUB=true`, the backend fails to start.
 
+The backend still requires the normal local env vars (`DATABASE_URL`, `JWT_SECRET`, `CREDENTIAL_ENCRYPTION_KEY`, and the GitHub OAuth placeholder values) because the app configuration is loaded before the mock client is selected.
+
+In local `web/.env`, point the frontend at the local backend:
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:3000
+```
+
+If you need to test from another device on your LAN, use the backend machine's LAN IP instead, for example:
+
+```env
+VITE_API_BASE_URL=http://192.168.0.95:3000
+```
+
 ## Prepare Database
 
-Apply the current Prisma migrations before seeding:
+Make sure local PostgreSQL is running before running Prisma or the seed script:
+
+```bash
+docker start starbuddy-postgres
+```
+
+If the local container does not exist yet, create it with the command from the README's "Start PostgreSQL" section.
+
+Then apply the current Prisma migrations before seeding:
 
 ```bash
 npx prisma migrate dev
@@ -62,6 +84,14 @@ npm run dev
 ```
 
 Open the frontend. The login page shows mock login buttons for the demo users.
+
+Quick backend check:
+
+```bash
+curl http://127.0.0.1:3000/auth/mock-users
+```
+
+The response should include `"mockGithubEnabled":true` and the five demo users. If the response is unavailable, the frontend will not be able to show mock login buttons.
 
 ## Demo Users
 
